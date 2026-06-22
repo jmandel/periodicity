@@ -19,6 +19,8 @@ jobs:
           java-version: '21'
       - name: Install Jekyll (the IG Publisher shells out to it for page rendering)
         run: sudo gem install jekyll
+      - name: Install SUSHI (the IG Publisher invokes the `sushi` binary directly)
+        run: npm install -g fsh-sushi@3.20.0
       - name: Compile FSH
         run: ./_sushi.sh
       - name: Download IG Publisher
