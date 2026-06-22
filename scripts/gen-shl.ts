@@ -16,7 +16,7 @@ import { encryptCompact, b64uFromBytes } from "../viewer-src/jwe.mjs";
 // The canonical viewer is hosted on GitHub Pages (see scripts/build-pages.ts);
 // both the viewer and the encrypted file live at the Pages root, so the demo is
 // same-origin and self-contained. A full shareable link is <viewer>#shlink:/<payload>.
-const PAGES_BASE = "https://jmandel.github.io/periodicity";
+const PAGES_BASE = "https://joshuamandel.com/periodicity";
 const LABEL = "Periodicity — synthetic longitudinal period-tracking export";
 const dir = `${import.meta.dir}/../input/images/viewer`;
 

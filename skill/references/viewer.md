@@ -2,7 +2,7 @@
 
 A receiver needs to turn a decrypted Bundle into something a clinician (or the patient) can read. The IG ships a complete, self-contained reference viewer you can **point at, reuse, or learn from** — you do not have to write one from scratch.
 
-Reference viewer (GitHub Pages, single self-contained file): `https://jmandel.github.io/periodicity/viewer.html`
+Reference viewer (GitHub Pages, single self-contained file): `https://joshuamandel.com/periodicity/viewer.html`
 Source: `viewer-src/` in the IG repo.
 
 ## The pipeline (what any viewer does)
@@ -24,7 +24,7 @@ The reference implementation, file by file (all dependency-light, browser + bun 
 
 ## Reuse options
 
-1. **Just link to it.** Generate `https://jmandel.github.io/periodicity/viewer.html#shlink:/…` (or your own copy) and let the user open it. Zero integration.
+1. **Just link to it.** Generate `https://joshuamandel.com/periodicity/viewer.html#shlink:/…` (or your own copy) and let the user open it. Zero integration.
 2. **Host your own copy.** The viewer is one self-contained `viewer.html` (no build step at runtime, no CDN). Drop it on any static host; it reads a co-located `shl.json` for a default, or any `#shlink:/…`.
 3. **Embed the transform.** If your app already has UI, reuse just `transform.mjs` + `viewmodel.mjs` to get the view model and render with your own components.
 

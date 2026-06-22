@@ -23,7 +23,7 @@ This draft defines a deliberately small FHIR R4 exchange model for **patient-gen
 
 - **Open the [clinician viewer](viewer/index.html)** — it decrypts and renders a worked SMART Health Link out of the box.
 - Inspect the data behind it: the [longitudinal example Bundle](Bundle-period-tracking-longitudinal-example.html) (a synthetic seven-cycle copper-IUD case) and the smaller [worked example](Bundle-period-tracking-bundle-example.html).
-- The canonical viewer is also hosted on GitHub Pages (`https://jmandel.github.io/periodicity/viewer.html`), which is what shareable `shlink:/…` links point at.
+- The canonical viewer is also hosted on GitHub Pages (`https://joshuamandel.com/periodicity/viewer.html`), which is what shareable `shlink:/…` links point at.
 
 ## The profiles
 

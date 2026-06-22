@@ -6,7 +6,7 @@
  * (independent of the IG build), while the IG itself ships the example Bundle,
  * the encrypted file, and docs. This emits a self-contained, single-file
  * viewer.html (the React app inlined — no separate .js) plus the demo data, to
- * `docs/`, which GitHub Pages serves at https://jmandel.github.io/<repo>/ .
+ * `docs/`, which GitHub Pages serves at https://joshuamandel.com/<repo>/ .
  *
  * Run as part of:  bun scripts/build-all.ts
  */
