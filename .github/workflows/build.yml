@@ -1,4 +1,11 @@
-name: Build FHIR IG
+name: Checks
+
+# Fast, deterministic, network-light checks on every push: compile the FSH and
+# run the integrity checks on the generated resources + the worked-example
+# Bundle. The FULL IG publish (HTML site, profile validation, terminology) is
+# done by the FHIR auto IG builder at build.fhir.org/ig/jmandel/periodicity —
+# that pipeline owns the template/Jekyll/publisher toolchain, so we don't
+# duplicate (and re-fight) it here.
 
 on:
   push:
@@ -6,30 +13,14 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  checks:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
-      - name: Install Jekyll (the IG Publisher shells out to it for page rendering)
-        run: sudo gem install jekyll
-      - name: Install SUSHI (the IG Publisher invokes the `sushi` binary directly)
-        run: npm install -g fsh-sushi@3.20.0
       - name: Compile FSH
         run: ./_sushi.sh
-      - name: Download IG Publisher
-        run: ./_updatePublisher.sh
-      - name: Build IG
-        run: ./_genonce.sh
-      - name: Run deterministic checks
+      - name: Deterministic integrity checks
         run: python3 scripts/check_mvp.py
-      - uses: actions/upload-artifact@v4
-        with:
-          name: period-tracking-mvp-ig-site
-          path: output/
