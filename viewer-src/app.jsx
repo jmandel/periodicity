@@ -53,9 +53,10 @@ function Landing({ text, onTextChange, recipient, onRecipientChange, onOpen, onD
           <div className="ld-row ld-row--link">
             <label className="ld-field ld-field--link">
               <span className="ld-label">Link to load</span>
-              <input className="ld-in" placeholder="Paste a SMART Health Link (shlink:/… or a viewer URL)"
+              <input className="ld-in ld-link-in" placeholder="Paste a SMART Health Link (shlink:/… or a viewer URL)"
                 value={text} onChange={(e) => onTextChange(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" && text.trim()) onOpen(text.trim()); }} />
+                onKeyDown={(e) => { if (e.key === "Enter" && text.trim()) onOpen(text.trim()); }}
+                autoCapitalize="none" autoCorrect="off" spellCheck={false} />
             </label>
             <button className="ld-btn ld-btn--p" disabled={!text.trim()} onClick={() => onOpen(text.trim())}>Open link</button>
           </div>
@@ -67,7 +68,7 @@ function Landing({ text, onTextChange, recipient, onRecipientChange, onOpen, onD
         </div>
 
         <p className="ld-foot">
-          The demo is a synthetic seven-cycle example — not a real person. Learn more in the{" "}
+          This reference viewer accepts compatible period-tracking SMART Health Links. The synthetic demo button loads sample data only. Learn more in the{" "}
           <a href="https://build.fhir.org/ig/jmandel/periodicity/">Period Tracking MVP IG</a>.
         </p>
       </div>
@@ -135,9 +136,6 @@ function App() {
     url.hash = shlinkURI;
     window.history.replaceState({}, "", url.toString());
   }
-  function viewerPrefixedLink(shlinkURI) {
-    return `${currentViewerURL()}#${shlinkURI}`;
-  }
   function recipientName() {
     return recipient.trim() || DEFAULT_RECIPIENT;
   }
@@ -145,7 +143,7 @@ function App() {
     const payload = parseShlink(link);
     if (!payload) throw new Error("demo shlink.txt did not contain shlink:/");
     payload.url = new URL("./example.jwe", document.baseURI).toString();
-    return viewerPrefixedLink(shlinkFromPayload(payload));
+    return shlinkFromPayload(payload);
   }
   async function resolvePayload(payload, shlinkURI) {
     try {
@@ -180,7 +178,7 @@ function App() {
     const shlinkURI = extractShlinkURI(location.hash) || extractShlinkURI(queryLink);
     if (shlinkURI) {
       setURLFragment(shlinkURI);
-      setDraftLink(viewerPrefixedLink(shlinkURI));
+      setDraftLink(shlinkURI);
     }
     setState({ status: "choose" });
   }, []);
@@ -189,7 +187,7 @@ function App() {
     return (<>
       <Landing text={draftLink} onTextChange={setDraftLink} recipient={recipient} onRecipientChange={setRecipient}
         onOpen={openText} onDemo={loadDemo} onScan={() => setScanning(true)} msg={state.msg} />
-      {scanning && <QrScanner onResult={(link) => { setScanning(false); setDraftLink(link); setState({ status: "choose" }); }} onClose={() => setScanning(false)} />}
+      {scanning && <QrScanner onResult={(link) => { setScanning(false); setDraftLink(extractShlinkURI(link) || link); setState({ status: "choose" }); }} onClose={() => setScanning(false)} />}
     </>);
   }
   return (
@@ -234,6 +232,7 @@ const CSS = `
 .ld-row--link{align-items:flex-end}
 .ld-row--split{gap:10px}
 .ld-in{flex:1;min-width:0;border:1px solid #CED6DF;border-radius:8px;padding:9px 12px;font:13px 'Inter';color:#15202E}
+.ld-link-in{font:13px 'IBM Plex Mono',monospace}
 .ld-in:focus{outline:2px solid #2B4A7A;outline-offset:0;border-color:#2B4A7A}
 .ld-btn{font:500 13px 'Inter';color:#15202E;background:#fff;border:1px solid #CED6DF;border-radius:8px;padding:9px 14px;cursor:pointer;flex:1}
 .ld-btn:hover{border-color:#7C8898}
