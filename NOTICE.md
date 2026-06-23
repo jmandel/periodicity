@@ -6,4 +6,4 @@ LOINC is copyright © Regenstrief Institute, Inc. and the LOINC Committee and is
 
 SNOMED CT is owned by SNOMED International. Implementers are responsible for using the appropriate edition and complying with applicable licensing requirements.
 
-The project-defined `https://fhir.me/cycle/CodeSystem/cycle` CodeSystem is released with this guide under CC0-1.0.
+The project-defined `https://cycle.fhir.me/CodeSystem/cycle` CodeSystem is released with this guide under CC0-1.0.

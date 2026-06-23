@@ -14,12 +14,12 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 RES = ROOT / "fsh-generated" / "resources"
 BUNDLE_FILE = ROOT / "input" / "resources" / "Bundle-period-tracking-longitudinal-example.json"
-CYCLE = "https://fhir.me/cycle/CodeSystem/cycle"
+CYCLE = "https://cycle.fhir.me/CodeSystem/cycle"
 LOINC, SCT, UCUM = "http://loinc.org", "http://snomed.info/sct", "http://unitsofmeasure.org"
 OBSCAT = "http://terminology.hl7.org/CodeSystem/observation-category"
-FACT_PROFILE = "https://fhir.me/cycle/StructureDefinition/period-tracking-fact"
-PANEL_PROFILE = "https://fhir.me/cycle/StructureDefinition/daily-tracking-panel"
-BUNDLE_PROFILE = "https://fhir.me/cycle/StructureDefinition/period-tracking-bundle"
+FACT_PROFILE = "https://cycle.fhir.me/StructureDefinition/period-tracking-fact"
+PANEL_PROFILE = "https://cycle.fhir.me/StructureDefinition/daily-tracking-panel"
+BUNDLE_PROFILE = "https://cycle.fhir.me/StructureDefinition/period-tracking-bundle"
 EXPECTED_CODES = {"daily-tracking-panel", "menstrual-flow", "flow-none", "flow-spotting", "flow-light", "flow-moderate", "flow-heavy"}
 EXPECTED_PROFILES = {"period-tracking-bundle", "period-tracking-fact", "daily-tracking-panel"}
 FLOW_VALUES = EXPECTED_CODES - {"daily-tracking-panel", "menstrual-flow"}

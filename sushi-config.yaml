@@ -1,5 +1,5 @@
 id: me.fhir.period-tracking-mvp
-canonical: https://fhir.me/cycle
+canonical: https://cycle.fhir.me
 name: PeriodTrackingMVP
 status: draft
 version: 0.1.0

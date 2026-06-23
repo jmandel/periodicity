@@ -38,7 +38,7 @@ This restraint is the whole point: the data is sensitive (reproductive, sexual, 
 ## The data model in one screen
 
 - **Bundle** (`period-tracking-bundle`): a `collection` with `identifier` + `timestamp`, exactly one Patient, ≥1 source Device, ≥1 daily panel, ≥1 granular fact, ≥1 Provenance. Optionally a `Binary` native snapshot.
-- **Daily panel** (`daily-tracking-panel`): `Observation`, code `https://fhir.me/cycle/CodeSystem/cycle#daily-tracking-panel`, `effectiveDateTime` = the calendar date, `hasMember` → the day's facts, optional `note` (free-text diary). A panel exists only for a day with ≥1 fact or a note.
+- **Daily panel** (`daily-tracking-panel`): `Observation`, code `https://cycle.fhir.me/CodeSystem/cycle#daily-tracking-panel`, `effectiveDateTime` = the calendar date, `hasMember` → the day's facts, optional `note` (free-text diary). A panel exists only for a day with ≥1 fact or a note.
 - **Fact** (`period-tracking-fact`): one independently meaningful `Observation` — a question `code` + a `value` + `subject`/`performer` = Patient + `device`. Category `survey` (or `vital-signs` for temperature).
 
 Common-core facts (full table in `references/fhir-mapping.md`):

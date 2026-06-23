@@ -5,7 +5,7 @@ The following mappings are the interoperable core that MVP viewers are expected 
 | Clinical fact | Observation.code | Result | Notes |
 |---|---|---|---|
 | Menstrual status | LOINC `8678-5` — Menstrual status - Reported | SNOMED CT `289894009` menstrual bleeding present, or `289895005` not currently menstruating | Emit the negative only when explicitly reported or verified. |
-| Menstrual flow | `https://fhir.me/cycle/CodeSystem/cycle#menstrual-flow` | One of the five MVP flow codes | Ordinal source category; never convert to mL or hemorrhage severity. |
+| Menstrual flow | `https://cycle.fhir.me/CodeSystem/cycle#menstrual-flow` | One of the five MVP flow codes | Ordinal source category; never convert to mL or hemorrhage severity. |
 | Symptom | LOINC `75325-1` — Symptom | SNOMED CT finding when exact; otherwise app-native coding and/or text | One Observation per selected symptom. |
 | Numeric pain | LOINC `72514-3` — Pain severity 0–10 verbal numeric rating | Quantity using UCUM `{score}` | Use only for a true 0–10 rating. |
 | Ordinal pain | LOINC `38208-5` — Pain severity - Reported | Standard qualifier or app-native coded value | Do not turn “unbearable” into a 10/10 score. |

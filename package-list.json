@@ -1,13 +1,13 @@
 {
   "package-id": "me.fhir.period-tracking-mvp",
-  "canonical": "https://fhir.me/cycle",
+  "canonical": "https://cycle.fhir.me",
   "title": "Period Tracking MVP Implementation Guide",
   "introduction": "A granular-first FHIR R4 exchange model for patient-generated period tracking data.",
   "list": [
     {
       "version": "current",
       "desc": "Continuous Integration Build",
-      "path": "https://fhir.me/cycle",
+      "path": "https://cycle.fhir.me",
       "status": "ci-build",
       "current": true
     },
@@ -15,7 +15,7 @@
       "version": "0.1.0",
       "date": "2026-06-22",
       "desc": "Initial MVP draft",
-      "path": "https://fhir.me/cycle/0.1.0",
+      "path": "https://cycle.fhir.me/0.1.0",
       "status": "draft",
       "sequence": "MVP"
     }

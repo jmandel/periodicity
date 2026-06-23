@@ -19,7 +19,7 @@ export const SYS = {
   sct: "http://snomed.info/sct",
   ucum: "http://unitsofmeasure.org",
   obsCat: "http://terminology.hl7.org/CodeSystem/observation-category",
-  cycle: "https://fhir.me/cycle/CodeSystem/cycle",
+  cycle: "https://cycle.fhir.me/CodeSystem/cycle",
   appExample: "https://example.org/fhir/CodeSystem/example-app-symptoms",
 };
 

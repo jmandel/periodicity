@@ -13,7 +13,7 @@
 import { buildDataset, IUD_DATE } from "../viewer-src/dataset.mjs";
 import { SYS, LOINC, SCT, FLOW_CODE_BY_LEVEL, SYMPTOM_DEFS } from "../viewer-src/codes.mjs";
 
-const CANON = "https://fhir.me/cycle";
+const CANON = "https://cycle.fhir.me";
 const BASE = "https://example.org/fhir";
 const ref = (t: string, id: string) => ({ reference: `${t}/${id}` });
 const PT = "pt-longitudinal";

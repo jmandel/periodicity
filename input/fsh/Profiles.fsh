@@ -16,12 +16,12 @@ Severity: #error
 
 Invariant: ptmvp-bundle-panel
 Description: "A Period Tracking MVP Bundle SHALL contain at least one Daily Tracking Panel Observation."
-Expression: "entry.resource.ofType(Observation).where(code.coding.where(system = 'https://fhir.me/cycle/CodeSystem/cycle' and code = 'daily-tracking-panel').exists()).exists()"
+Expression: "entry.resource.ofType(Observation).where(code.coding.where(system = 'https://cycle.fhir.me/CodeSystem/cycle' and code = 'daily-tracking-panel').exists()).exists()"
 Severity: #error
 
 Invariant: ptmvp-bundle-fact
 Description: "A Period Tracking MVP Bundle SHALL contain at least one granular fact Observation in addition to its daily panels."
-Expression: "entry.resource.ofType(Observation).where(code.coding.where(system = 'https://fhir.me/cycle/CodeSystem/cycle' and code = 'daily-tracking-panel').empty()).exists()"
+Expression: "entry.resource.ofType(Observation).where(code.coding.where(system = 'https://cycle.fhir.me/CodeSystem/cycle' and code = 'daily-tracking-panel').empty()).exists()"
 Severity: #error
 
 Invariant: ptmvp-bundle-provenance

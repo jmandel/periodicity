@@ -26,7 +26,7 @@ Bundle (type=collection; identifier 1..1; timestamp 1..1)
 Each **fact** Observation: `status=final`; `category` = `survey` (or `vital-signs` for temperature); a question `code`; `subject` and `performer` = the Patient; `effectiveDateTime` (day precision for date-only facts, full timestamp when the source has one — never invent a time); `device` → the Device; and exactly one `value[x]` (`Quantity | CodeableConcept | string | boolean`). The MVP uses **`hasMember` grouping, never `Observation.component`**, because each fact must be independently searchable/displayable.
 
 Code system URLs:
-`http://loinc.org` · `http://snomed.info/sct` · `http://unitsofmeasure.org` · `http://terminology.hl7.org/CodeSystem/observation-category` · project: `https://fhir.me/cycle/CodeSystem/cycle`.
+`http://loinc.org` · `http://snomed.info/sct` · `http://unitsofmeasure.org` · `http://terminology.hl7.org/CodeSystem/observation-category` · project: `https://cycle.fhir.me/CodeSystem/cycle`.
 
 ## Fact-by-fact mapping (common core)
 
