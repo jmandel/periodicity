@@ -19,7 +19,7 @@ flowchart LR
 The reference implementation, file by file (all dependency-light, browser + bun safe):
 
 - `viewer-src/jwe.mjs` — compact JWE `dir`/A256GCM decrypt (+ `zip:DEF` inflate), WebCrypto only.
-- `viewer-src/shl.mjs` — parse `shlink:/`, fetch (direct-file or manifest), decrypt → Bundle.
+- `viewer-src/shl.mjs` — parse `shlink:/`, fetch direct-file SHLinks (with base-SHL manifest compatibility for receivers), decrypt → Bundle.
 - `viewer-src/transform.mjs` — **the reusable core**: Bundle → application-independent view model `{ meta, cycles[], daily[], byDate, events[], context }`. Tolerant: unknown codes ignored, missing fields skipped, a day with no entry is never treated as "no symptom."
 - `viewer-src/viewmodel.mjs` — derive descriptive metrics from the view model (the UI hard-codes no numbers).
 - `viewer-src/summary.jsx` — the render layer (React): cycle-comparison strips, per-cycle table, bleeding/pain timeline, symptom heatmap, fertility (BBT) panel, day detail.

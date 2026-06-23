@@ -54,22 +54,17 @@ Common-core facts (full table in `references/fhir-mapping.md`):
 
 Flow intensity (`menstrual-flow`) and "is this a period" (`menstrual-status`) are **separate**: spotting without a period status is intermenstrual bleeding. The receiver derives episodes, cycle lengths, and medians from the facts — summaries do **not** travel in the bundle.
 
-## Choosing how to share (decision)
+## Choosing how to share
 
-The encrypted file and the key are never seen together by any server; pick where the ciphertext lives by the app's architecture:
-
-- **No backend / static hosting** → write the encrypted JWE as a static object to your web host / CDN / object store and use **direct-file mode** (flag `U`). Simplest; no passcode, expiry, or revocation beyond deleting the object.
-- **You have (or want) a backend** → run a small SHL manifest server for passcodes, expiry, one-time use, updateable content, and an access log. The open-source **kill-the-clipboard** server does exactly this.
-- **Quick demo / MVP, no infra yet** → use the hosted **https://ktc.joshuamandel.com** service (same code, operated for you; prototype-grade — self-host for production).
-
-Details, the exact ktc API, and the SHL protocol are in `references/smart-health-links.md`.
+Follow the IG packaging guidance in `input/pagecontent/smart-health-links.md` (published as `smart-health-links.html`). It defines the Period Tracking MVP share shape, lifetime expectations, and use-limit guidance. Use `references/smart-health-links.md` only for implementation notes and local scripts.
 
 ## References
 
 Read these as needed; don't load them all up front.
 
 - `references/fhir-mapping.md` — the concrete fact-by-fact mapping, terminology, flow/missing-data rules, and a worked bundle to copy from. **Read before building the export.**
-- `references/smart-health-links.md` — SHL protocol, the three hosting patterns, the ktc.joshuamandel.com API, viewer-prefix + QR, and the DEFLATE/`zip` interop caveat. **Read before building sharing.**
+- `input/pagecontent/smart-health-links.md` — the normative Period Tracking MVP SHLink packaging guidance. **Read before building sharing.**
+- `references/smart-health-links.md` — implementation notes, viewer-prefix + QR details, and local scripts that support the packaging guidance. **Use after reading the packaging page.**
 - `references/viewer.md` — how the reference client-side viewer works (decrypt → transform → render) and how to reuse or embed it. **Read before building a viewer.**
 - `references/journal-templates.md` — lightweight plan / journal / mapping-issue templates to keep in the target repo.
 

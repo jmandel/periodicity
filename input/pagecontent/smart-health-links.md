@@ -23,11 +23,28 @@ The sharing application SHOULD:
 
 The file host does not need the decryption key and should not receive plaintext FHIR, native JSON, patient labels, or diary text.
 
-## Direct-file and manifest modes
+## Direct-file SHLinks
 
-A one-file, finalized MVP export can use direct-file mode. Manifest mode is appropriate when the implementation needs passcodes, multiple files, updateable content, or additional access controls.
+Period Tracking MVP shares use SMART Health Links direct-file mode.
+
+A conforming share SHALL:
+
+- include `U` in the SHLink `flag`;
+- set `url` to a direct-file endpoint for one compact JWE;
+- encrypt exactly one `application/fhir+json` Period Tracking MVP Bundle; and
+- let receivers retrieve the JWE with `GET <url>?recipient=...`.
+
+This guide does not define a manifest-based Period Tracking MVP share. If an implementation chooses another SMART Health Links pattern, it is outside this guide's constrained exchange profile.
 
 The SMART Health Links specification requires compact JWE using direct key management and A256GCM, with the payload content type identified in the protected header. The payload SHOULD be compressed with raw DEFLATE before encryption, signalled by `"zip":"DEF"` in the JWE protected header; recipients SHALL accept both compressed and uncompressed payloads. The worked example below compresses a ~640 KB Bundle to a ~20 KB encrypted file this way.
+
+## Link lifetime and use limits
+
+Period-tracking SHLinks should be scoped to the intended clinical handoff.
+
+For an in-person QR or same-day handoff, sharing applications SHOULD create short-lived links, for example 5-15 minutes. For scheduled or asynchronous review, sharing applications SHOULD prefer a bounded lifetime such as 24-48 hours.
+
+When the file is served by a backend, the server SHOULD support deletion, expiry, or a small maximum-use count and return 404 after the link is no longer active. When the JWE is hosted as a static object, `exp` is only a receiver-visible staleness hint; enforced expiry requires deleting or rotating the object.
 
 ## Recipient behavior
 

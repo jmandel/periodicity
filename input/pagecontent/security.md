@@ -11,7 +11,7 @@ The sharing application SHOULD let the user choose:
 - whether notes are included;
 - whether the native archive is included;
 - link expiration;
-- passcode protection when supported; and
+- link use limits when supported; and
 - identifying information in the Patient resource.
 
 Sensitive categories should default off when they are outside the immediate clinical purpose.

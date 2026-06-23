@@ -32,7 +32,7 @@ Any menstrual, fertility, or cycle-tracking app — regardless of its internal d
 
 - **The skill** (a complete working method for agents) lives at **`skill/SKILL.md`** in the source repository: **[github.com/jmandel/periodicity](https://github.com/jmandel/periodicity)**. Read it in situ (`git clone` then open `skill/SKILL.md`) so its references to `viewer-src/`, `scripts/`, and `input/resources/` resolve. It covers app inventory and field classification, the fact-by-fact FHIR mapping, the missing-data rules, how to make a SMART Health Link, how to reuse or build a viewer, and how to verify end to end.
 - **Reference implementation in the repo:** `viewer-src/` (the transform + viewer), `scripts/` (the `bun` generators that build the example Bundle, the SHL, and the viewer), and `input/resources/` (the published example Bundle).
-- **Hosting the share — pick by your architecture:** a static encrypted file on your own web host/CDN (no backend); your own [SMART Health Link backend](smart-health-links.html) (passcodes, expiry, revocation, audit); or the hosted demo service **`https://ktc.joshuamandel.com`** for quick prototypes. The skill's `references/smart-health-links.md` has the decision guide and the API.
+- **Hosting the share:** publish one encrypted JWE file through a static host/CDN/object store, or through a backend endpoint that behaves like a direct-file SHLink (`flag: "U"`). See the [SMART Health Link packaging](smart-health-links.html) guidance for lifetime and use-limit expectations.
 
 Start: **`git clone https://github.com/jmandel/periodicity`, read `skill/SKILL.md`, open the {% include demo-shlink-link.xhtml %}, and inspect the [mapping](mapping.html).**
 
