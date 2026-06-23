@@ -16,12 +16,23 @@ import { encryptCompact, b64uFromBytes, bytesFromB64u } from "../viewer-src/jwe.
 
 // The canonical viewer is our standalone GitHub Pages deployment at
 // periodicity.fhir.me (the IG-published copy at build.fhir.org can't be relied
-// on — its output strips/blocks unchecked active JS). The Pages site serves
-// both the viewer and example.jwe from its root, so the demo stays same-origin.
-// A full shareable link is <viewer>/#shlink:/<payload>. Override VIEWER_BASE
-// when publishing from a fork or a different host.
+// on — its output strips/blocks unchecked active JS). A full shareable link is
+// <viewer>/#shlink:/<payload>; the payload's `url` is the ciphertext location.
+//
+// example.jwe is published in BOTH places (it's committed under
+// input/images/viewer/, which the Pages deploy and the IG Publisher each copy),
+// so we emit two demo links for two purposes:
+//   - shlink.txt (co-located on Pages): embeds the same-origin Pages jwe — this
+//     is what the viewer's "Load the synthetic demo" button uses.
+//   - the spec's demo includes: embed the SPEC-hosted jwe under FILE_BASE and
+//     prefix the external viewer, demonstrating the full cross-origin handoff
+//     (spec hosts its own copy of the data, passes out to the external viewer).
+// Both jwe copies are byte-identical (same committed file, same fixed key), so
+// either link decrypts. Override VIEWER_BASE / FILE_BASE for a fork or rehost.
 const DEFAULT_VIEWER_BASE = "https://periodicity.fhir.me";
+const DEFAULT_FILE_BASE = "https://build.fhir.org/ig/jmandel/periodicity/viewer";
 const VIEWER_BASE = normalizeBase(Bun.env.VIEWER_BASE || DEFAULT_VIEWER_BASE);
+const FILE_BASE = normalizeBase(Bun.env.FILE_BASE || DEFAULT_FILE_BASE);
 const LABEL = "Periodicity — synthetic longitudinal period-tracking export";
 const dir = `${import.meta.dir}/../input/images/viewer`;
 const includesDir = `${import.meta.dir}/../input/includes`;
@@ -52,9 +63,13 @@ function normalizeBase(value: string) {
 
 await mkdir(includesDir, { recursive: true });
 
-// canonical shareable link (Pages-hosted viewer + same-origin encrypted file)
-const shareUrl = share(`${VIEWER_BASE}/`, `${VIEWER_BASE}/example.jwe`);
-await Bun.write(`${dir}/shlink.txt`, shareUrl + "\n");
+// co-located sample link (Pages viewer + same-origin Pages jwe) — backs the
+// viewer's "Load the synthetic demo" button and is a self-contained share link.
+const sampleUrl = share(`${VIEWER_BASE}/`, `${VIEWER_BASE}/example.jwe`);
+await Bun.write(`${dir}/shlink.txt`, sampleUrl + "\n");
+// spec demo link (external viewer + spec-hosted jwe) — the full cross-origin
+// handoff documented on the IG pages.
+const shareUrl = share(`${VIEWER_BASE}/`, `${FILE_BASE}/example.jwe`);
 // local test links (underscore -> not published by the IG Publisher)
 const localFileUrl = "http://localhost:5525/viewer/example.jwe";
 await Bun.write(`${dir}/_shlink-local.txt`, shlinkPayload(localFileUrl) + "\n");
@@ -81,4 +96,4 @@ await Bun.write(`${includesDir}/demo-shlink-block.md`, [
 console.log(`wrote example.jwe (${jwe.length} chars), shlink.txt (+ local test links)`);
 console.log(`  wrote input/includes/demo-shlink-{link.xhtml,block.md}`);
 console.log(`  key=${keyB64.slice(0, 10)}… (fixed public demo key)`);
-console.log(`  viewer=${VIEWER_BASE}`);
+console.log(`  viewer=${VIEWER_BASE}  (sample jwe co-located; spec demo jwe=${FILE_BASE}/example.jwe)`);
