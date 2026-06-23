@@ -14,25 +14,21 @@
 import { mkdir } from "node:fs/promises";
 import { encryptCompact, b64uFromBytes, bytesFromB64u } from "../viewer-src/jwe.mjs";
 
-// The canonical viewer is our standalone GitHub Pages deployment at
-// periodicity.fhir.me (the IG-published copy at build.fhir.org can't be relied
-// on — its output strips/blocks unchecked active JS). A full shareable link is
-// <viewer>/#shlink:/<payload>; the payload's `url` is the ciphertext location.
-//
-// example.jwe is published in BOTH places (it's committed under
-// input/images/viewer/, which the Pages deploy and the IG Publisher each copy),
-// so we emit two demo links for two purposes:
-//   - shlink.txt (co-located on Pages): embeds the same-origin Pages jwe — this
-//     is what the viewer's "Load the synthetic demo" button uses.
-//   - the spec's demo includes: embed the SPEC-hosted jwe under FILE_BASE and
-//     prefix the external viewer, demonstrating the full cross-origin handoff
-//     (spec hosts its own copy of the data, passes out to the external viewer).
-// Both jwe copies are byte-identical (same committed file, same fixed key), so
-// either link decrypts. Override VIEWER_BASE / FILE_BASE for a fork or rehost.
+// Both the viewer and the demo ciphertext are served from our standalone
+// GitHub Pages deployment at periodicity.fhir.me. Two reasons it must host the
+// jwe, not the spec:
+//   1. The IG-published viewer (build.fhir.org / eventually hl7.org) can't be
+//      relied on — its output strips/blocks unchecked active JS.
+//   2. The demo link is published *in the spec*, but a browser viewer fetches
+//      the jwe cross-origin, which needs CORS. build.fhir.org sends CORS today,
+//      but hl7.org (the canonical home) does NOT — so a spec-hosted jwe URL
+//      would break the demo the moment we publish there. periodicity.fhir.me
+//      (a CORS-enabled host we control) keeps the link working everywhere.
+// So the spec mints links whose `.url` points at periodicity.fhir.me, even
+// though the link itself lives on the spec page. A full shareable link is
+// <viewer>/#shlink:/<payload>. Override VIEWER_BASE for a fork or rehost.
 const DEFAULT_VIEWER_BASE = "https://periodicity.fhir.me";
-const DEFAULT_FILE_BASE = "https://build.fhir.org/ig/jmandel/periodicity/viewer";
 const VIEWER_BASE = normalizeBase(Bun.env.VIEWER_BASE || DEFAULT_VIEWER_BASE);
-const FILE_BASE = normalizeBase(Bun.env.FILE_BASE || DEFAULT_FILE_BASE);
 const LABEL = "Periodicity — synthetic longitudinal period-tracking export";
 const dir = `${import.meta.dir}/../input/images/viewer`;
 const includesDir = `${import.meta.dir}/../input/includes`;
@@ -63,13 +59,11 @@ function normalizeBase(value: string) {
 
 await mkdir(includesDir, { recursive: true });
 
-// co-located sample link (Pages viewer + same-origin Pages jwe) — backs the
-// viewer's "Load the synthetic demo" button and is a self-contained share link.
-const sampleUrl = share(`${VIEWER_BASE}/`, `${VIEWER_BASE}/example.jwe`);
-await Bun.write(`${dir}/shlink.txt`, sampleUrl + "\n");
-// spec demo link (external viewer + spec-hosted jwe) — the full cross-origin
-// handoff documented on the IG pages.
-const shareUrl = share(`${VIEWER_BASE}/`, `${FILE_BASE}/example.jwe`);
+// The shareable link: external viewer + the CORS-durable Pages jwe. Used both
+// for shlink.txt (co-located on Pages; also backs the viewer's "Load the
+// synthetic demo" button) and for the demo links published in the spec.
+const shareUrl = share(`${VIEWER_BASE}/`, `${VIEWER_BASE}/example.jwe`);
+await Bun.write(`${dir}/shlink.txt`, shareUrl + "\n");
 // local test links (underscore -> not published by the IG Publisher)
 const localFileUrl = "http://localhost:5525/viewer/example.jwe";
 await Bun.write(`${dir}/_shlink-local.txt`, shlinkPayload(localFileUrl) + "\n");
@@ -96,4 +90,4 @@ await Bun.write(`${includesDir}/demo-shlink-block.md`, [
 console.log(`wrote example.jwe (${jwe.length} chars), shlink.txt (+ local test links)`);
 console.log(`  wrote input/includes/demo-shlink-{link.xhtml,block.md}`);
 console.log(`  key=${keyB64.slice(0, 10)}… (fixed public demo key)`);
-console.log(`  viewer=${VIEWER_BASE}  (sample jwe co-located; spec demo jwe=${FILE_BASE}/example.jwe)`);
+console.log(`  viewer=${VIEWER_BASE}  (jwe at ${VIEWER_BASE}/example.jwe — CORS-durable for spec + Pages)`);
