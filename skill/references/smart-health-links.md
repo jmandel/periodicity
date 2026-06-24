@@ -66,23 +66,25 @@ Start from the controls you must honestly offer, then pick the host that can bac
 |---|---|---|---|---|---|
 | **Static object, no backend** (CDN / S3 / GCS / Azure, permissive CORS) | ✗ advisory only — must delete to enforce | ✗ blind host can't count | ✓ delete / overwrite / rotate key | ✗ | you just need to publish a snapshot the user can hand to a clinician |
 | **Your own backend** (direct-file: `GET <url>?recipient=…` → `application/jose`) | ✓ | ✓ | ✓ | ✓ | clinic check-in, tighter operational control, production with no third party in the path |
-| **ktc.joshuamandel.com companion server** | ✓ | ✓ | ✓ pause / revoke / re-arm | ✓ | client-only / static / mobile apps with no backend to enforce limits, revocation, or logging |
+| **shlep** (deployable blind SHLink service over any object store) | ✓ | ✓ | ✓ pause / revoke | ✓ | client-only / static / mobile apps with no backend to enforce limits, revocation, passcode, or audit |
 
-**Decision rule:** if the product promises use-limits, guaranteed revocation, or "opens remaining," a blind static host is insufficient — use a backend or the companion server. Static is fine for a plain snapshot, but you still owe the user a real take-down (delete the object) and must not display counters you cannot compute.
+**Decision rule:** if the product promises use-limits, guaranteed revocation, passcode, or "opens remaining," a blind static host is insufficient — use a backend or deploy shlep. Static is fine for a plain snapshot, but you still owe the user a real take-down (delete the object) and must not display counters you cannot compute.
 
 In all three, the privacy boundary holds: the host stores only ciphertext; the key stays client-side.
 
-**Companion server details.** Use ktc.joshuamandel.com when the app can build and encrypt a Bundle but has no natural backend to host the ciphertext.
+**shlep — a deployable blind SHLink service.** Use [shlep](https://github.com/jmandel/shlep) when the app can encrypt a Bundle but has no natural backend to host the ciphertext. It implements the SHLink data plane this guide needs (`GET /shl/{id}?recipient=…` → compact JWE; plus the manifest rail) and a capability-token control plane: create shares, add/replace/delete files, set expiry and max-use, set/clear a passcode, pause/resume, revoke, and read an access log — over ciphertext + a hashed manage token, never plaintext or the content key.
 
-- Hosted prototype: https://ktc.joshuamandel.com
-- Code and deployment pattern: https://github.com/jmandel/kill-the-clipboard-skill
-- Server API notes: https://github.com/jmandel/kill-the-clipboard-skill/blob/main/server/README.md
+- Source + spec: https://github.com/jmandel/shlep (`docs/api-design.md`; a running instance self-documents at `GET /llms.txt`).
+- Backends: any object store — S3, R2, GCS, Azure Blob, MinIO.
+- Runtime: the core is Web-standard, so it runs on Node/Bun/Deno or a **Cloudflare Worker** — a Worker + an R2 bucket is a near-turnkey blind host for an app with no server.
 
-It implements the direct-file SHLink data plane this guide needs (`GET /shl/{id}?recipient=…` → compact JWE as `application/jose`); its control plane creates managed links, uploads/replaces ciphertext, sets expiry and max-use, pauses/revokes/re-arms, and exposes access logs — all over ciphertext + opaque metadata, never plaintext or the key. *Trade-off:* another service in the path; the public instance is prototype-grade with no production SLA. For production health data, self-host the codebase with your own retention/monitoring, or implement the same direct-file API in the app's own backend.
+You deploy and operate it (no public hosted instance) — the right posture for production health data: you control retention, monitoring, and how manage tokens are issued.
 
-## Implementing it yourself (no library)
+## Implementing it yourself (no service)
 
-If you'd rather not pull in a library, the whole client side is small — see the IG's `viewer-src/jwe.mjs` (compact JWE `dir`/A256GCM with optional `zip:DEF`, WebCrypto only) and `scripts/gen-shl.ts` (encrypt a bundle, build the `shlink:/`). For direct-file mode you then just host the `.jwe` and hand out `<viewer>#shlink:/<payload>`.
+If you'd rather not run a service, the client side is small. Use shlep's reference client crypto — `src/crypto.ts` (compact JWE `dir`/A256GCM, WebCrypto only) and `src/client.ts` (encrypt + compose the `shlink:/`) at https://github.com/jmandel/shlep — directly or translated; it uses a **fresh random IV per encryption and a fresh key per share** (the correct nonce discipline). For direct-file mode you then host the `.jwe` and hand out `<viewer>#shlink:/<payload>`.
+
+The IG's own `viewer-src/jwe.mjs` is the viewer's **decrypt** path; `scripts/gen-shl.ts` is **editorial demo tooling** that pins a fixed key+IV only to keep the published example byte-stable — do not copy that pattern for real encryption.
 
 ## Receiver notes
 
