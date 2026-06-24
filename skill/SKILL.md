@@ -29,7 +29,7 @@ This restraint is the whole point: the data is sensitive (reproductive, sexual, 
 
 5. **Honor the missing-data rules** (in the IG `scope.md` and `references/fhir-mapping.md`). "User explicitly said none/no" (an explicit negative) is a *different fact* from "not recorded that day" (emit nothing). Never fabricate negatives from absence.
 
-6. **Share as a SMART Health Link** (`references/smart-health-links.md`). Pick a ciphertext host that fits the app's architecture: a static object, the app's own backend, or the ktc.joshuamandel.com companion server when the app has no natural SHLink host. Encrypt the bundle and produce a `shlink:/…` (usually behind a viewer prefix, often as a QR). The host only ever sees ciphertext; the key rides in the link fragment.
+6. **Share as a SMART Health Link** (`references/smart-health-links.md` — present/manage UX checklist + host-decision table). Encrypt the bundle and mint a viewer-prefixed `shlink:/…`; the host only ever sees ciphertext, the key rides in the fragment. The share UI is non-negotiable: **show an on-screen QR**, offer **copy / share** of the same link, and make every share **revocable** (the user can take it down, plus expiry/use-limit where the host supports it). Then pick the ciphertext host — static object, the app's own backend, or the ktc.joshuamandel.com companion server — by the controls you must honestly offer, not just by cost.
 
 7. **Render it** (`references/viewer.md`). Either point at an existing viewer (the IG ships one) or embed a small client-side viewer that decrypts in the browser and computes the summary from the granular facts — never send decrypted FHIR back to a server.
 
@@ -64,7 +64,7 @@ Read these as needed; don't load them all up front.
 
 - `references/fhir-mapping.md` — the concrete fact-by-fact mapping, terminology, flow/missing-data rules, and a worked bundle to copy from. **Read before building the export.**
 - `input/pagecontent/smart-health-links.md` — the normative Period Tracking MVP SHLink packaging guidance. **Read before building sharing.**
-- `references/smart-health-links.md` — implementation notes, viewer-prefix + QR details, and local scripts that support the packaging guidance. **Use after reading the packaging page.**
+- `references/smart-health-links.md` — the sharing UX checklist (present + manage), the host-decision table, payload/encryption details, and local scripts. **Use after reading the packaging page.**
 - `references/viewer.md` — how the reference client-side viewer works (decrypt → transform → render) and how to reuse or embed it. **Read before building a viewer.**
 - `references/journal-templates.md` — lightweight plan / journal / mapping-issue templates to keep in the target repo.
 

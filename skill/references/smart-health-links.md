@@ -26,37 +26,59 @@ Encryption: **compact JWE, `alg:"dir"`, `enc:"A256GCM"`**, `cty` header = `appli
 
 For a direct-file SHLink, the receiver does `GET <url>?recipient=<org>` and the body is the JWE (`Content-Type: application/jose`). `recipient` is required. The receiver then decrypts the JWE with `key` and parses the FHIR Bundle.
 
-## Viewer prefix & QR
+**Why a plain static file is a compliant SHL.** Normally `url` is a *manifest endpoint* the receiver `POST`s to — that needs a server. The **`U` ("direct file") flag** tells the receiver to skip the manifest and `GET` the `url` directly, with the encrypted JWE as the body. A static host (S3 / GCS / Azure blob, a CDN object, a GitHub Pages file) just returns the bytes and ignores the `?recipient` query, so no server logic is required. Our own demo *is* this: `example.jwe` is a static file on GitHub Pages with `flag:"U"`. The flip side is exactly why it's the weakest tier in the host table below — a dumb host can't read `recipient`, count opens, or enforce `exp`, and it must send permissive CORS so a browser viewer can fetch it cross-origin.
 
-The shareable form is a **viewer URL + fragment**: `https://viewer.example/#shlink:/eyJ…`. The `#` fragment is never sent to the server (so the key never leaks into logs). A bare `shlink:/…` works only with SHL-aware scanners; the prefixed form opens from any phone camera. Encode that URL as a **QR (error-correction level M)**, optionally with the SMART logo. Parsers accept either bare or prefixed (extract the `shlink:/` substring).
+## Sharing UX — present and manage the link
 
-The project's own viewer prefix: `https://periodicity.fhir.me/#shlink:/…`.
+Treat a share as a **live, revocable object the user owns**, not a one-off export. Its lifecycle is **create → present → deliver → manage → take down**, and the sharing UI has two jobs. The rules below hold across app architectures (static, backed, client-only, mobile).
 
-## Hosting implementation notes
+### Present the link — checklist
 
-### (a) Static file, no backend
-Encrypt client-side, write the JWE as a static object to your web host / CDN / S3 / GCS / Azure (permissive CORS), and point `url` at it. Cheapest, nothing to run.
-*Trade-offs:* no server-enforced use counting, no access log, `exp` is only advisory unless you delete or rotate the object.
-*Use when:* you just need to publish a snapshot the user can hand to a clinician.
+The shareable string is a **viewer URL + fragment**: `<viewer>/#shlink:/eyJ…`. The `#` fragment is never sent to the server (so the key never leaks into logs). The project's own viewer prefix is `https://periodicity.fhir.me/#shlink:/…`.
 
-### (b) Your own backend — still direct file
-Serve the JWE from a backend endpoint that behaves like a direct-file SHLink data URL: `GET <url>?recipient=...` returns `application/jose`. The backend can enforce expiry, use limits, deletion, rate limits, and basic audit while keeping the Period Tracking MVP SHLink shape unchanged.
-*Trade-offs:* you run a process + storage.
-*Use when:* clinic check-in flows, tighter operational control, or production where no third party should be in the path.
+- [ ] **MUST render an on-screen QR** of that full string — error-correction level M, sized to scan from a phone, label visible (optionally the SMART logo). A bare `shlink:/…` only works with SHL-aware scanners; the viewer-prefixed form opens from any phone camera. *This is the primary in-person handoff and the step implementers most often skip — it is not optional.*
+- [ ] **MUST offer copy-to-clipboard** of the identical string.
+- [ ] **SHOULD offer the native share sheet** (`navigator.share()` / OS share) for remote delivery — message, email, paste into a portal.
+- [ ] **SHOULD state in plain language** what's inside (data types + date range), that it's encrypted, and that anyone with the link can open it.
 
-### (c) ktc.joshuamandel.com companion server
-Use the ktc.joshuamandel.com SHLink companion server when the app can build and encrypt a Period Tracking MVP Bundle but does not have a natural backend to host the encrypted SHLink target file.
+The QR and the copied/shared text are byte-identical: one minted link, two channels (scan vs. send).
+
+### Manage the link — checklist
+
+Because this is reproductive data, the user must stay in control after the link leaves their screen.
+
+- [ ] **MUST provide a visible "Stop sharing / Take it down" action** that actually makes the link stop resolving — delete the ciphertext, disable the endpoint, or revoke server-side. Every architecture must support a real take-down.
+- [ ] **MUST retain a handle to each live share** (the host URL / link id) so it can be revoked later. A fire-and-forget upload you cannot delete is not acceptable.
+- [ ] **SHOULD show lifetime/expiry**, and where the host can count opens, **opens-remaining / use-limit**.
+- [ ] **SHOULD list active shares** with status (created · last opened · expires · revoked).
+
+Two automatic take-down triggers, both host-enforced and surfaced here: **after N opens** (needs a counting host) and **on expiry** (a countdown that is only real if the host stops serving at `exp`). The always-available manual trigger is **user revokes now**.
+
+### Honesty rule
+
+**Only surface a control the host actually enforces.** Don't show "2 opens left" if the host can't count GETs; don't imply auto-expiry a static object won't enforce. The link itself carries only an advisory `exp` — enforcement (expiry, use-count, revocation) is the *host's* job, so what you can promise in the UI is gated by where the ciphertext lives (next section).
+
+## Choosing a host by the controls you need
+
+Start from the controls you must honestly offer, then pick the host that can back them.
+
+| Host | Real auto-expiry | Use-limit / count | Explicit revoke | Access visible | Use when |
+|---|---|---|---|---|---|
+| **Static object, no backend** (CDN / S3 / GCS / Azure, permissive CORS) | ✗ advisory only — must delete to enforce | ✗ blind host can't count | ✓ delete / overwrite / rotate key | ✗ | you just need to publish a snapshot the user can hand to a clinician |
+| **Your own backend** (direct-file: `GET <url>?recipient=…` → `application/jose`) | ✓ | ✓ | ✓ | ✓ | clinic check-in, tighter operational control, production with no third party in the path |
+| **ktc.joshuamandel.com companion server** | ✓ | ✓ | ✓ pause / revoke / re-arm | ✓ | client-only / static / mobile apps with no backend to enforce limits, revocation, or logging |
+
+**Decision rule:** if the product promises use-limits, guaranteed revocation, or "opens remaining," a blind static host is insufficient — use a backend or the companion server. Static is fine for a plain snapshot, but you still owe the user a real take-down (delete the object) and must not display counters you cannot compute.
+
+In all three, the privacy boundary holds: the host stores only ciphertext; the key stays client-side.
+
+**Companion server details.** Use ktc.joshuamandel.com when the app can build and encrypt a Bundle but has no natural backend to host the ciphertext.
 
 - Hosted prototype: https://ktc.joshuamandel.com
 - Code and deployment pattern: https://github.com/jmandel/kill-the-clipboard-skill
 - Server API notes: https://github.com/jmandel/kill-the-clipboard-skill/blob/main/server/README.md
 
-ktc.joshuamandel.com is useful because it already implements the direct-file SHLink data-plane shape this guide needs: `GET /shl/{id}?recipient=...` returns the compact JWE as `application/jose`. Its control plane can create managed links, upload or replace ciphertext, set expiry and max-use limits, pause/revoke/re-arm links, and expose access logs. The server stores ciphertext and opaque control metadata; it does not need plaintext FHIR or the SHLink decryption key.
-
-*Trade-offs:* another service is in the operational path. The public hosted instance is prototype-grade and has no production SLA; use it for demos or MVP integration work. For production health data, either self-host the companion server codebase with your own retention/monitoring controls or implement the same direct-file API pattern in the app's own backend.
-*Use when:* the app is client-only, static-hosted, mobile-only, or otherwise lacks an existing server that can enforce expiry, revocation, use limits, or access logging for encrypted SHLink files.
-
-The privacy boundary holds in all three: the host stores only ciphertext; the key stays client-side.
+It implements the direct-file SHLink data plane this guide needs (`GET /shl/{id}?recipient=…` → compact JWE as `application/jose`); its control plane creates managed links, uploads/replaces ciphertext, sets expiry and max-use, pauses/revokes/re-arms, and exposes access logs — all over ciphertext + opaque metadata, never plaintext or the key. *Trade-off:* another service in the path; the public instance is prototype-grade with no production SLA. For production health data, self-host the codebase with your own retention/monitoring, or implement the same direct-file API in the app's own backend.
 
 ## Implementing it yourself (no library)
 
