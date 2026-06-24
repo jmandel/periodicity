@@ -29,7 +29,7 @@ This restraint is the whole point: the data is sensitive (reproductive, sexual, 
 
 2. **Confirm the high-level choices with the user.** Before building, surface the decisions that change the shape of the work and get the user's call — propose a sensible default, then ask them to confirm or redirect:
    - **Sharing flow** — a downloaded file, a QR/link, or a viewer-prefixed link?
-   - **Ciphertext host** — a static object, the app's own backend, or a deployable blind service ([shlep](https://github.com/jmandel/shlep): self-hostable over any object store, runs on a Cloudflare Worker)? Frame this as the controls you can *honestly* promise (revocability, expiry, use-limit, passcode), not just cost (`references/smart-health-links.md`).
+   - **Ciphertext host** — a static object, the app's own backend, or a deployable blind service ([shlep](https://github.com/jmandel/shlep), self-hostable over any object store)? Frame this as the controls you can *honestly* promise (revocability, expiry, use-limit, passcode), not just cost (`references/smart-health-links.md`).
    - **Viewer** — reuse the IG's published viewer, or embed your own?
    - **Sensitive scope** — which categories (e.g. sexual activity, mental-health, fertility signs) to include versus hold back.
 

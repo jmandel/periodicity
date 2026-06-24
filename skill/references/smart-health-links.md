@@ -28,6 +28,18 @@ For a direct-file SHLink, the receiver does `GET <url>?recipient=<org>` and the 
 
 **Why a plain static file is a compliant SHL.** Normally `url` is a *manifest endpoint* the receiver `POST`s to — that needs a server. The **`U` ("direct file") flag** tells the receiver to skip the manifest and `GET` the `url` directly, with the encrypted JWE as the body. A static host (S3 / GCS / Azure blob, a CDN object, a GitHub Pages file) just returns the bytes and ignores the `?recipient` query, so no server logic is required. Our own demo *is* this: `example.jwe` is a static file on GitHub Pages with `flag:"U"`. The flip side is exactly why it's the weakest tier in the host table below — a dumb host can't read `recipient`, count opens, or enforce `exp`, and it must send permissive CORS so a browser viewer can fetch it cross-origin.
 
+## SHL conformance — the easy-to-miss SHALLs
+
+If you implement the wire format yourself (rather than deploying shlep, which handles these), the SHL spec has a few requirements implementers routinely miss. Verify each — they are also the right checklist for reviewing any SHL implementation:
+
+- **`recipient` is required** on every resolve (GET query or manifest POST body) — reject if absent.
+- **`url` entropy:** the unguessable part SHALL carry **≥256 bits** of randomness (e.g. 32 random bytes → 43 base64url chars), and the whole `url` SHALL stay **≤128 chars**.
+- **Flags are `{L, P, U}` only**, and **`U` SHALL NOT combine with `P`** — a passcoded share is served via the **manifest only**, never the direct-file GET.
+- **Manifest `files[].contentType` is the *decrypted* type** (`application/fhir+json`, `application/smart-health-card`, or `application/smart-api-access`) — **not** `application/jose` (that is only the HTTP `Content-Type` of the JWE body).
+- **Passcode:** enforce a bounded incorrect-attempt budget; on a wrong passcode return **401 with `{remainingAttempts}`**, and disable the link once it is spent.
+- **Nonce:** a fresh **random 96-bit IV from a CSPRNG per encryption**, with a hard limit of ~2³² messages per key, then rotate keys — simplest is a fresh key per share.
+- **`label` ≤ 80 chars.**
+
 ## Sharing UX — present and manage the link
 
 Treat a share as a **live, revocable object the user owns**, not a one-off export. Its lifecycle is **create → present → deliver → manage → take down**, and the sharing UI has two jobs. The rules below hold across app architectures (static, backed, client-only, mobile).
@@ -76,7 +88,6 @@ In all three, the privacy boundary holds: the host stores only ciphertext; the k
 
 - Source + spec: https://github.com/jmandel/shlep (`docs/api-design.md`; a running instance self-documents at `GET /llms.txt`).
 - Backends: any object store — S3, R2, GCS, Azure Blob, MinIO.
-- Runtime: the core is Web-standard, so it runs on Node/Bun/Deno or a **Cloudflare Worker** — a Worker + an R2 bucket is a near-turnkey blind host for an app with no server.
 
 You deploy and operate it (no public hosted instance) — the right posture for production health data: you control retention, monitoring, and how manage tokens are issued.
 
