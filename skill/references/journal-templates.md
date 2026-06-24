@@ -1,6 +1,6 @@
 # Journal & planning templates
 
-Keep a light paper trail in the **target app's** repo so mapping decisions are reviewable and reversible. Match the repo's existing doc conventions; these are starting points, not mandates.
+Keep a light paper trail in the **target app's** repo so mapping decisions are reviewable and reversible. Match the repo's existing doc conventions; these are starting points, not mandates. The plan checklist tracks *progress* (keep it live as you build); the journal records *decisions*. For the terms used below — IG validation, the `Binary` native snapshot, FHIR codes/values, the host choices — see `references/fhir-mapping.md` and `references/smart-health-links.md`.
 
 ## `period-fhir-plan.md`
 
@@ -13,7 +13,7 @@ Goal: <one sentence — what sharing flow we're enabling and for whom>
 - [ ] App data inventory complete (fields classified)
 - [ ] FHIR Bundle built from real stored data, validates against the IG
 - [ ] Missing-data rules applied (explicit-negative vs not-recorded)
-- [ ] Sharing flow works (SHL: <static file | backend | hosted demo>)
+- [ ] Sharing flow works (SHL host: <static object | own backend | companion server>)
 - [ ] Client-side viewer renders the summary
 - [ ] Privacy boundary verified (host never sees plaintext or key)
 - [ ] Demo data seeded (if in scope)
