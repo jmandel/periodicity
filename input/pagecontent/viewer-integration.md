@@ -26,7 +26,7 @@ The reference implementation, file by file (all dependency-light, browser + bun 
 
 ## Reuse options
 
-1. **Host the reference viewer.** `scripts/build-viewer.ts` bundles `viewer-src/` into a self-contained `view.html` page plus `view-assets/app.js` (no CDN, no runtime transpile). Local builds write `dist/view.html` and `dist/view-assets/`; the site build writes `output/view.html` and `output/view-assets/`.
+1. **Host the reference viewer.** `scripts/build-viewer.ts` bundles viewer source into self-contained pages plus asset directories (no CDN, no runtime transpile). Local and site builds publish `view.html`, `view2.html`, and `view3.html` side by side. `view.html` is the original reference viewer; `view2.html` is a second launch page for the same implementation; `view3.html` is a bleeding-first alternate built from `view3-src/`.
 2. **Embed the core.** Reuse `viewer-src/shl.mjs`, `viewer-src/jwe.mjs`, and `viewer-src/transform.mjs` inside your app while replacing the render layer.
 
 A real `#shlink:/...` fragment prepopulates the chooser and keeps the SHLink key off the server; the recipient enters or accepts the visible name field and clicks Open before the viewer sends the SHLink `recipient` value, decrypts, and renders. A bare visit shows the same explicit chooser (paste a bare `shlink:/...`, scan a QR via the device camera, or load a co-located `shlink.txt` demo link into the paste field) rather than silently rendering demo data as if it were the visitor's own.

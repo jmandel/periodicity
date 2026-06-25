@@ -69,7 +69,7 @@ A dedicated provider scanner or receiving application SHOULD treat the viewer pr
 
 ## Reference viewer and worked SMART Health Link
 
-The published site includes a self-contained **[reference clinician viewer](view.html)** and a worked SMART Health Link that exercises one complete path end to end. The reference viewer is an example/default receiver, not a required component of conforming implementations.
+The published site includes self-contained reference clinician viewers, starting with **[view.html](view.html)** and including side-by-side variants **[view2.html](view2.html)** and **[view3.html](view3.html)**, plus a worked SMART Health Link that exercises one complete path end to end. These viewers are example/default receivers, not required components of conforming implementations.
 
 - The **[longitudinal example Bundle](Bundle-period-tracking-longitudinal-example.html)** — a synthetic seven-cycle copper-IUD case built from the Layer 0 bleeding core plus Layer 1 structured facts — is the cleartext.
 - It is encrypted to the direct-file SHL payload published at [`view-assets/example.jwe`](view-assets/example.jwe) (with `zip:DEF`), and one viewer-prefixed sample link is published at [`view-assets/shlink.txt`](view-assets/shlink.txt).

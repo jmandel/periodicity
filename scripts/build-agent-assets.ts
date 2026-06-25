@@ -48,6 +48,9 @@ const specLinkTargets: Record<string, string> = {
   testing: "testing.md",
   references: "references.md",
   "ig-details": "ig-details.md",
+  view: "https://cycle.fhir.me/view",
+  view2: "https://cycle.fhir.me/view2.html",
+  view3: "https://cycle.fhir.me/view3.html",
 };
 
 function rewriteSitePageLinks(markdown: string, targets: Record<string, string>) {
@@ -156,7 +159,9 @@ Key pages:
 - SMART Health Links packaging: https://cycle.fhir.me/smart-health-links.html
 - SMART Health Links implementation notes: https://cycle.fhir.me/smart-health-links-implementation.html
 - Viewer integration: https://cycle.fhir.me/viewer-integration.html
-- Reference viewer: https://cycle.fhir.me/view
+- Reference viewer v1: https://cycle.fhir.me/view
+- Reference viewer v2: https://cycle.fhir.me/view2.html
+- Reference viewer v3: https://cycle.fhir.me/view3.html
 
 Agent package:
 - Download https://cycle.fhir.me/skill.zip for a self-contained skill package. It maps the browsable IG skill page to SKILL.md and includes references plus core spec markdown.

@@ -11,11 +11,12 @@ This draft defines a deliberately small FHIR R4 exchange model for **patient-gen
 
 1. **Model** — an app maps the data it actually stores to the Bundle profile and concrete fact profiles below. See the [Specification](specification.html) and the [FHIR mapping reference](fhir-mapping.html).
 2. **Share** — the Bundle is encrypted into a [SMART Health Link](smart-health-links.html) (compact JWE; the file host never sees the key or plaintext).
-3. **View** — a receiving app decrypts the link and renders a cycle summary, **computing all analytics from the granular facts** (no precomputed summaries travel in the Bundle). The site includes a [reference clinician viewer](view.html) as one compatible receiver.
+3. **View** — a receiving app decrypts the link and renders a cycle summary, **computing all analytics from the granular facts** (no precomputed summaries travel in the Bundle). The site includes [reference clinician viewer variants](view.html) as compatible receivers.
 
 ### Try it now
 
 - **Open the reference viewer:** [view.html](view.html) — the published site build includes the generated sample link next to the viewer.
+- **Compare viewer variants:** [view2.html](view2.html) keeps the current reference viewer available as a second launch page; [view3.html](view3.html) is a bleeding-first alternate that foregrounds Layer 0 extrapolations before optional overlays.
 - Inspect the data behind it: the [longitudinal example Bundle](Bundle-period-tracking-longitudinal-example.html) (a synthetic seven-cycle copper-IUD case — the same data the viewer renders).
 - The sample is published as a viewer-prefixed link (`https://cycle.fhir.me/view#shlink:/...`) because that is the most robust default for ordinary browser launch. A provider's dedicated receiving app can scan that same QR, ignore the viewer prefix, and process the embedded `shlink:/...` with its own display logic.
 

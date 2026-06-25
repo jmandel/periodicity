@@ -6,6 +6,7 @@
 const chrome = Bun.env.CHROMIUM || "chromium";
 const port = Number(Bun.env.CDP_PORT || "9225");
 const viewerUrl = Bun.env.VIEWER_URL || "http://localhost:5525/view";
+const expectedText = Bun.env.VIEWER_EXPECTED_TEXT || "Menstrual cycle review";
 
 const proc = Bun.spawn([
   chrome,
@@ -109,7 +110,7 @@ async function main() {
     if (!loaded.ok) throw new Error("demo button did not populate a raw shlink:/ value");
     if (loaded.text.includes("Could not render")) throw new Error("demo button caused an error state");
 
-    const rendered = await evaluate(cdp, `(${async () => {
+    const rendered = await evaluate(cdp, `(${async (needle) => {
       const button = [...document.querySelectorAll("button")].find((b) => b.textContent?.includes("Open link"));
       if (!button) throw new Error("Open link button not found");
       button.click();
@@ -117,17 +118,17 @@ async function main() {
         let tries = 0;
         const tick = () => {
           const text = document.body.innerText;
-          if (text.includes("Menstrual cycle review")) resolve({ ok: true, text });
+          if (text.includes(needle)) resolve({ ok: true, text });
           else if (text.includes("Could not render")) resolve({ ok: false, text });
           else if (++tries > 120) resolve({ ok: false, text });
           else setTimeout(tick, 100);
         };
         tick();
       });
-    }})()`);
+    }})(${JSON.stringify(expectedText)})`);
     if (!rendered.ok) throw new Error(`Open link did not render summary:\n${rendered.text}`);
 
-    console.log("  [demo-click] OK - demo button prefilled shlink:/ and Open rendered the summary");
+    console.log(`  [demo-click] OK - demo button prefilled shlink:/ and Open rendered ${JSON.stringify(expectedText)}`);
     cdp.ws.close();
   } finally {
     proc.kill();

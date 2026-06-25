@@ -13,6 +13,8 @@ import * as esbuild from "esbuild";
 const root = `${import.meta.dir}/..`;
 const outdir = Bun.env.VIEWER_OUTDIR || `${root}/dist/view-assets`;
 const pageOut = Bun.env.VIEWER_PAGE_OUT || `${root}/dist/view.html`;
+const entry = Bun.env.VIEWER_ENTRY || `${root}/viewer-src/app.jsx`;
+const templatePath = Bun.env.VIEWER_TEMPLATE || `${root}/viewer-src/index.html`;
 await rm(outdir, { recursive: true, force: true });
 await rm(pageOut, { force: true });
 if (!Bun.env.VIEWER_OUTDIR) await rm(`${root}/dist/view`, { recursive: true, force: true });
@@ -20,7 +22,7 @@ await mkdir(outdir, { recursive: true });
 await mkdir(dirname(pageOut), { recursive: true });
 
 await esbuild.build({
-  entryPoints: [`${root}/viewer-src/app.jsx`],
+  entryPoints: [entry],
   bundle: true,
   format: "iife",
   platform: "browser",
@@ -33,7 +35,7 @@ await esbuild.build({
   logLevel: "info",
 });
 
-const template = await Bun.file(`${root}/viewer-src/index.html`).text();
+const template = await Bun.file(templatePath).text();
 const scriptSrc = relative(dirname(pageOut), `${outdir}/app.js`).replaceAll("\\", "/");
 await Bun.write(pageOut, template.replace('src="app.js"', `src="${scriptSrc}"`));
 

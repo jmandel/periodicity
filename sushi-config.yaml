@@ -38,7 +38,9 @@ menu:
   Implementation:
     Clinical display: clinical-display.html
     SMART Health Links: smart-health-links.html
-    Clinician viewer: view.html
+    Clinician viewer v1: view.html
+    Clinician viewer v2: view2.html
+    Clinician viewer v3: view3.html
     Security and privacy: security.html
   Examples and testing:
     Worked example: examples.html
