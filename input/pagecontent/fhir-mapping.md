@@ -144,7 +144,7 @@ Do not emit predicted periods, fertile windows, or roll-up statistics (cycle len
 
 ## Complete export (optional)
 
-A *Normalized* export includes Layer 0 and any supported Layer 1 facts. A *Complete* export additionally preserves every selected source datum not represented in the normalized facts — the recommended Layer 2 mechanism is one `Binary` holding an exact, versioned native-JSON snapshot. It is an audit / migration / future-remapping safety net, never a substitute for the normalized facts.
+An export may optionally preserve every selected source datum not represented in the normalized facts. The recommended Layer 2 mechanism is one `Binary` holding an exact, versioned native-JSON snapshot. It is an audit / migration / future-remapping safety net, never a substitute for the normalized facts.
 
 ## Build & validate
 
