@@ -1,7 +1,7 @@
 # cycle — site-gen design drop-in
 
 The visual design for the site-gen renderer, owned by site-gen (no dependency on
-the Publisher/Jekyll `ig-template`). Swapping the look is a directory-level change:
+Publisher/Jekyll template assets). Swapping the look is a directory-level change:
 point `SITE_DESIGN_DIR` at a different design folder with the same shape.
 
 ```

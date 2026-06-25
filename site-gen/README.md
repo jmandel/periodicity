@@ -3,19 +3,20 @@
 A static-site renderer for FHIR Implementation Guides. The IG Publisher does the
 FHIR work (validation, snapshots, terminology expansion) and emits `package.db`;
 site-gen reads that DB and renders the final site with React SSR + island hydration.
-No Jekyll, no dependency on the Publisher's HTML/`ig-template`.
+No Jekyll output is deployed, and the published site has no dependency on the
+Publisher's generated HTML or template assets.
 
-The repo still carries a minimal `ig-template/` shim because the Publisher needs
-some template while producing `output/package.db`. That shim is not the visual
-source for the published site; styles, fonts, marks, and chrome live here under
-`site-gen/designs/`, `site-gen/chrome/`, and `site-gen/project/`.
+The Publisher is invoked through `ig-gh-actions.ini` with `fhir2.base.template`
+only so it can produce `output/package.db`. The visual source for the published
+site lives here under `site-gen/designs/`, `site-gen/chrome/`, and
+`site-gen/project/`.
 
 ## Pipeline
 
 ```
 FSH → SUSHI → IG Publisher (→ output/package.db)
    → site-gen/ingest.ts  (augments package.db → temp/site-gen/site.db
-                          with Pages, Menu, SiteConfig, Assets)
+                          with Pages, Menu, SiteConfig, first-party Assets)
    → site-gen/build.tsx  (renders → site-gen/out)
    → scripts/build-sitegen-site.ts injects project artifacts (viewers, SHL,
        skill.zip, CNAME) and runs a final whole-site link check
@@ -35,7 +36,8 @@ fails loudly rather than silently rendering a stale one.
 
 - **`core/`** — generic static-site mechanics, no FHIR/project knowledge:
   `db` (SQLite reader), `markdown`, `link-check` (href/src/srcset), `liquid`
-  (safe LiquidJS engine; registry-only includes; unknown → throw).
+  (safe LiquidJS engine; registered computed includes + ingested text-asset
+  includes; unknown → throw).
 - **`fhir/`** — reusable FHIR IG rendering: profile / value-set / code-system /
   example pages, `ElementTable`, `MachineFormats`. Assumes Publisher `package.db` tables.
 - **`chrome/`** — site shell/UI: `Layout`, `Menu`, `Footer`, `Parts`, `Tabs`, `Island`.
@@ -49,8 +51,12 @@ fails loudly rather than silently rendering a stale one.
 
 ## Security / trust model
 
-- **Liquid includes are registry-only** (`project/includes.ts`); there is no
-  "include a file from disk" feature, and an **unknown include fails the build**.
+- **Liquid includes never read from disk during render**. They resolve either to
+  a computed registry entry (`project/includes.ts`) or to a same-named text asset
+  that `ingest.ts` already copied into the DB from trusted project/Publisher
+  outputs. An **unknown include fails the build**.
+- **Asset names are validated** before ingest/write; absolute paths, `..`, and
+  empty path segments are rejected.
 - A **Liquid/include error fails the build** (set `SITE_GEN_LENIENT=1` only for
   local dev) — a broken directive must never silently publish.
 - The **link checker rejects `javascript:` links** and flags dangling internal refs.

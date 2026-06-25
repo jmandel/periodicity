@@ -1,11 +1,20 @@
 import React from 'react';
 import { CodeBlock } from '../ds/CodeBlock.jsx';
-import { Island } from '../chrome/Island';
 import { PageHeader, Tag, SectionHeading } from '../chrome/Parts';
 import type { ResourceRow } from '../core/db';
 
 export function ExamplePage({ r, data }: { r: ResourceRow; data: any }) {
   const json = JSON.stringify(data, null, 2);
+  const jsonFile = `${r.Type}-${r.Id}.json`;
+  const previewLines = json.split('\n');
+  const maxPreviewLines = 220;
+  const preview = previewLines.length > maxPreviewLines
+    ? [
+      ...previewLines.slice(0, maxPreviewLines),
+      '',
+      `... ${previewLines.length - maxPreviewLines} more lines in ${jsonFile}`,
+    ].join('\n')
+    : json;
   return (
     <>
       <PageHeader
@@ -21,7 +30,10 @@ export function ExamplePage({ r, data }: { r: ResourceRow; data: any }) {
       />
       <section className="art-section" id="source">
         <SectionHeading id="source">Source</SectionHeading>
-        <Island name="CodeBlock" component={CodeBlock} props={{ lang: 'json', filename: `${r.Type}-${r.Id}.json`, code: json, showLines: true }} />
+        <p className="muted">
+          Preview only. The full JSON is published as <a href={jsonFile}><code>{jsonFile}</code></a>.
+        </p>
+        <CodeBlock lang="json" filename={`${jsonFile} preview`} code={preview} showLines copy={false} />
       </section>
     </>
   );

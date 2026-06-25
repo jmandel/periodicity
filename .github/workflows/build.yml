@@ -19,3 +19,5 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - name: Deterministic integrity checks
         run: bun run check
+      - name: site-gen renderer smoke
+        run: SITE_GEN_USE_FIXTURE=1 bun site-gen/ingest.ts && bun site-gen/build.tsx

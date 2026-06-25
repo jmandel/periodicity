@@ -7,6 +7,7 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { rmSync, mkdirSync, cpSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { dirname, isAbsolute, join, normalize, relative } from 'node:path';
 import * as db from './core/db';
 import { Layout, Crumb, TocItem } from './chrome/Layout';
 import { ProfilePage } from './fhir/ProfilePage';
@@ -24,7 +25,7 @@ import { project } from './project/cycle';
 
 const OUT = project.outDir;
 // The visual design is a site-gen-owned drop-in (swap = directory change).
-// No dependency on the Publisher/Jekyll ig-template.
+// No dependency on Publisher/Jekyll template assets.
 const DESIGN = project.designDir;
 
 // ---- assets ----
@@ -36,7 +37,22 @@ cpSync(`${DESIGN}/assets`, `${OUT}/assets`, { recursive: true });       // cycle
 cpSync(project.projectCss, `${OUT}/assets/project.css`);                // project-specific CSS
 
 // Ingested IG assets (images, etc.) written verbatim — single source is the DB.
-for (const a of db.assets()) writeFileSync(`${OUT}/${a.Name}`, a.Content as any);
+function outputAssetPath(name: string): string {
+  const normalized = name.replace(/\\/g, '/');
+  const parts = normalized.split('/');
+  if (!normalized || normalized.startsWith('/') || parts.some((part) => !part || part === '..')) {
+    throw new Error(`Unsafe asset name in DB: ${name}`);
+  }
+  const candidate = normalize(join(OUT, normalized));
+  const rel = relative(OUT, candidate);
+  if (rel.startsWith('..') || isAbsolute(rel)) throw new Error(`Asset path escapes output dir: ${name}`);
+  return candidate;
+}
+for (const a of db.assets()) {
+  const dest = outputAssetPath(a.Name);
+  mkdirSync(dirname(dest), { recursive: true });
+  writeFileSync(dest, a.Content as any);
+}
 
 // ---- data ----
 const meta = db.metadata();
@@ -140,7 +156,7 @@ for (const p of db.pages()) {
   const file = `${p.Slug}.html`;
   let liquidOut: string;
   try {
-    liquidOut = renderLiquid(p.Body, { includes, ig: igResource });
+    liquidOut = renderLiquid(p.Body, { includes, ig: igResource, assetInclude: db.textAsset });
   } catch (e: any) {
     // A broken include/directive must NOT silently publish. Fail the build unless
     // explicitly running in lenient dev mode.

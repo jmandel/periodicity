@@ -34,11 +34,11 @@ This draft defines a deliberately small FHIR R4 exchange model for **patient-gen
 
 It defines one small [Menstrual Flow ValueSet](ValueSet-menstrual-flow.html), a non-binding [Common Period-Tracking Symptoms](ValueSet-common-tracker-symptoms.html) starter set, a small fact-category ValueSet, and a [project CodeSystem](CodeSystem-cycle.html) of exactly eight concepts. The universal Layer 0 core is `menstrual-bleeding` true/false at the source date or timestamp; standard LOINC, SNOMED CT, and UCUM are used for optional Layer 1 facts when the source meaning supports them.
 
-## For period-tracking app developers and AI agents
+## Adding support to a period-tracking app
 
 Any menstrual, fertility, or cycle-tracking app — regardless of its internal data model — can adopt this IG. The work is mostly mapping the data you already store and choosing how to host the encrypted share.
 
-**An AI agent adding support to an app should** start with the [AI implementation skill](skill.html). It is the implementation checklist for inspecting real app data, mapping only stored facts, packaging an encrypted SHLink, and verifying the viewer/privacy path.
+When using an AI agent to add support, start with the [AI implementation skill](skill.html). It is the implementation checklist for inspecting real app data, mapping only stored facts, packaging an encrypted SHLink, and verifying the viewer/privacy path.
 
 - **The skill** (a complete working method for agents) is browsable at [skill.html](skill.html) and downloadable as a self-contained [skill.zip](skill.zip). The zip maps this page to `SKILL.md`, includes the skill references, and includes the core spec markdown under `spec/`.
 - **Reference implementation in the repo:** `viewer-src/` (the transform + viewer source) and `scripts/` (the `bun` generators that build the example Bundle, the SHL, and the viewer as build artifacts).

@@ -89,8 +89,10 @@ Only this curated surface is exposed — **not** Jekyll's full `site`/`site.data
 
 ## 5 · `include` → shortcode registry (the important part)
 
-`{% include NAME args %}` does **not** read a file. NAME maps to a registered
-generator `(args, ctx) => htmlString`, fed by `package.db`. Two kinds:
+`{% include NAME args %}` does **not** read a file at render time. NAME first maps
+to a registered generator `(args, ctx) => htmlString`, fed by `package.db`; if no
+generator exists, it may resolve to a same-named text asset that `ingest.ts`
+already copied into the DB from trusted project/Publisher outputs. Two kinds:
 
 **A. Publisher-artifact replacements** (what `ig-details.md` / `specification.md` need):
 | include NAME | Generated from |
@@ -99,7 +101,7 @@ generator `(args, ctx) => htmlString`, fed by `package.db`. Two kinds:
 | `cross-version-analysis` | (stub/optional) |
 | `globals-table` | IG resource `global[]` |
 | `ip-statements` | package copyright/license metadata |
-| `model.svg` (or `model-diagram`) | inline our built SVG asset |
+| `model.svg` | same-named Publisher include output, copied into the DB because authored markdown references it |
 
 **B. Authoring shortcodes** (our components, React SSR → HTML):
 | include NAME | Renders |
@@ -112,6 +114,8 @@ Rules:
 - **Unknown NAME → build error** (fail loud; never emit a broken `{% include %}`).
 - Args are simple `key=value` (quoted strings / refs), parsed to an object.
 - Generators are pure: `(args, ctx) → string`; they may pull from `package.db`.
+- File-like includes are data, not registry code: referenced Publisher include
+  outputs are ingested into `Assets` and then inlined from the DB.
 
 ---
 
@@ -153,5 +157,5 @@ subset above. Revisit B only if the dependency or surface area becomes a problem
   md render) or HTML-only? Leaning HTML-only for generated tables; Markdown for prose includes.
 - Strict variables: throw on missing path, or empty-string? Propose **warn + empty** in
   dev, **throw** in CI.
-- Diagrams (`model.svg`): inline at build vs `<img>` — inline (so it inherits theme/colors
-  and ships the underlying structure), per the brief.
+- Diagrams (`model.svg`): Publisher renders the diagram; ingest copies the
+  referenced include output into `Assets`; render inlines it from the DB.

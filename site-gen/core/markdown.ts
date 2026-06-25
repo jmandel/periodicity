@@ -10,11 +10,24 @@ const md = new MarkdownIt({ html: true, linkify: true, typographer: false });
 md.use((md) => {
   md.core.ruler.after('inline', 'task_lists', (state) => {
     const tokens = state.tokens;
+    const firstInlineInListItem = (start: number) => {
+      let nested = 0;
+      for (let j = start + 1; j < tokens.length; j++) {
+        const t = tokens[j];
+        if (t.type === 'list_item_open') nested++;
+        if (t.type === 'list_item_close') {
+          if (nested === 0) return null;
+          nested--;
+        }
+        if (nested === 0 && t.type === 'inline') return t;
+      }
+      return null;
+    };
     for (let i = 0; i < tokens.length; i++) {
       const item = tokens[i];
       if (item.type !== 'list_item_open') continue;
 
-      const inline = tokens.slice(i + 1).find((t) => t.type === 'inline');
+      const inline = firstInlineInListItem(i);
       const first = inline?.children?.[0];
       if (!inline || !first || first.type !== 'text') continue;
 

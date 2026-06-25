@@ -1,6 +1,7 @@
 /**
  * project/includes.ts — PROJECT-OWNED Liquid `{% include NAME %}` registry.
- * DB-first: each entry derives HTML from the IG resource / ingested assets.
+ * DB-first: each entry derives HTML from the IG resource. Plain file-like
+ * includes are resolved from ingested DB assets by core/liquid.ts.
  * Adding or removing an include here does not touch the generic renderer
  * (core/liquid.ts). Another IG would replace this file.
  */
@@ -10,9 +11,6 @@ import type { IncludeRegistry } from '../core/liquid';
 const esc = (s: string) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 export const includes: IncludeRegistry = {
-  // model diagram: generated from PlantUML at ingest, stored in Assets (single source).
-  'model.svg': () => db.asset('model.svg') || '<!-- model.svg not ingested -->',
-
   // dependency table: derived from the IG resource's dependsOn (in the DB).
   'dependency-table.xhtml': (ig) => {
     const deps = ig.dependsOn || [];

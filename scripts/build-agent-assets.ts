@@ -21,6 +21,23 @@ const staging = join(root, "temp", "skill-package");
 const zipOut = join(outDir, "skill.zip");
 const llmsOut = join(outDir, "llms.txt");
 
+async function read(path: string) {
+  return Bun.file(path).text();
+}
+
+async function sushiConfig() {
+  return read(join(root, "sushi-config.yaml"));
+}
+
+async function canonicalUrl() {
+  const config = await sushiConfig();
+  const match = config.match(/^canonical:\s*(\S+)/m);
+  if (!match) throw new Error("sushi-config.yaml must declare canonical for the agent package");
+  return match[1].replace(/\/+$/, "");
+}
+
+const siteBase = await canonicalUrl();
+
 const skillFrontMatter = `---
 name: period-tracking-fhir-sharing
 description: Add standards-based menstrual/cycle data sharing to a period-, fertility-, or cycle-tracking app using the Period Tracking MVP FHIR IG: export tracked data as a FHIR R4 Bundle, share it as an encrypted SMART Health Link, and render it in a privacy-preserving client-side viewer.
@@ -52,9 +69,9 @@ const specLinkTargets: Record<string, string> = {
   testing: "testing.md",
   references: "references.md",
   "ig-details": "ig-details.md",
-  view: "https://cycle.fhir.me/view",
-  view2: "https://cycle.fhir.me/view2.html",
-  view3: "https://cycle.fhir.me/view3.html",
+  view: `${siteBase}/view.html`,
+  view2: `${siteBase}/view2.html`,
+  view3: `${siteBase}/view3.html`,
 };
 
 function rewriteSitePageLinks(markdown: string, targets: Record<string, string>) {
@@ -83,18 +100,15 @@ function specPackageLinks(markdown: string) {
   return rewriteSitePageLinks(markdown.replaceAll("(skill.zip)", "(../README.md)"), specLinkTargets);
 }
 
-async function read(path: string) {
-  return Bun.file(path).text();
-}
-
 async function writeTransformed(src: string, dest: string, transform = (s: string) => s) {
   await writeFile(dest, transform(await read(join(pagecontent, src))));
 }
 
 async function publisherUrl() {
-  const config = await read(join(root, "sushi-config.yaml"));
+  const config = await sushiConfig();
   const match = config.match(/publisher:\s*\n(?:[^\n]*\n)*?\s+url:\s*(\S+)/);
-  return match?.[1] || "https://github.com/jmandel/cycle";
+  if (!match) throw new Error("sushi-config.yaml must declare publisher.url for the agent package");
+  return match[1];
 }
 
 async function zipDir(sourceDir: string, targetZip: string) {
@@ -143,7 +157,7 @@ This zip is generated from the Period Tracking MVP IG source content.
 - The \`references/\` directory contains the implementation method details.
 - The \`spec/\` directory contains the core IG markdown snapshot used by the skill.
 
-Published IG: https://cycle.fhir.me/
+Published IG: ${siteBase}/
 Source repository: ${sourceRepo}
 `);
 

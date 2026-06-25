@@ -7,7 +7,8 @@
  *               tree that ALREADY lives in the IG resource's definition.page
  *   - Menu    : the curated top-nav (sushi-config.yaml `menu:` — submenus/anchors)
  *   - SiteConfig: parsed source config needed by site-generation components
- *   - Assets  : generated artifacts (model.svg from input/images-source/*.plantuml)
+ *   - Assets  : project images and Publisher-generated include outputs referenced
+ *               by page markdown
  *
  * Everything else (page structure/titles/order, dependencies, bindings, …) is
  * derived from the DB at render time. After this runs, build.tsx reads ONLY site.db.
@@ -16,8 +17,7 @@
  */
 import { Database } from 'bun:sqlite';
 import { copyFileSync, readFileSync, existsSync, readdirSync, statSync, mkdirSync } from 'node:fs';
-import { dirname } from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { dirname, isAbsolute, join, normalize, relative } from 'node:path';
 import YAML from 'yaml';
 import { project } from './project/cycle';
 
@@ -39,6 +39,7 @@ function resolvePkgDb(): string {
 
 const PKG = resolvePkgDb();
 const SITE = process.env.SITE_DB || 'temp/site-gen/site.db';
+const preserveAssets = process.env.SITE_GEN_PRESERVE_ASSETS === '1' || PKG.endsWith('site-gen/fixtures/package.db');
 mkdirSync(dirname(SITE), { recursive: true });
 copyFileSync(PKG, SITE);
 const db = new Database(SITE);
@@ -51,14 +52,23 @@ DROP TABLE IF EXISTS SiteConfig;
 CREATE TABLE Menu (Id INTEGER PRIMARY KEY, ParentId INTEGER, Ord INTEGER, Depth INTEGER, Path TEXT, Label TEXT, Href TEXT, Kind TEXT);
 CREATE TABLE SiteConfig (Name TEXT PRIMARY KEY, Json TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS Assets (Name TEXT PRIMARY KEY, Mime TEXT, Content TEXT);
-DELETE FROM Pages; DELETE FROM Menu; DELETE FROM Assets;
+DELETE FROM Pages; DELETE FROM Menu;
 `);
+if (!preserveAssets) db.exec('DELETE FROM Assets;');
 
 // ---- Pages: tree (from DB) + body (from input/pagecontent) ----
 const igRow: any = db.query("SELECT Json FROM Resources WHERE Type='ImplementationGuide'").get();
 const ig = JSON.parse(typeof igRow.Json === 'string' ? igRow.Json : new TextDecoder().decode(igRow.Json));
 let ord = 0;
+const pageIncludeNames = new Set<string>();
 const insPage = db.prepare('INSERT OR REPLACE INTO Pages (Slug, NameUrl, Title, Generation, Ord, Depth, Body) VALUES (?,?,?,?,?,?,?)');
+function liquidIncludeNames(body: string): string[] {
+  const out: string[] = [];
+  const re = /{%-?\s*include\s+("[^"]+"|'[^']+'|[^\s%]+)[^%]*-?%}/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(body))) out.push(m[1].replace(/^['"]|['"]$/g, ''));
+  return out;
+}
 function walkPages(node: any, depth: number) {
   if (!node) return;
   for (const p of Array.isArray(node) ? node : [node]) {
@@ -69,6 +79,7 @@ function walkPages(node: any, depth: number) {
       const xmlPath = `${PAGEDIR}/${slug}.xml`;
       const body = existsSync(mdPath) ? readFileSync(mdPath, 'utf8')
         : existsSync(xmlPath) ? readFileSync(xmlPath, 'utf8') : null;
+      if (body) for (const name of liquidIncludeNames(body)) pageIncludeNames.add(name);
       // Prefer the page's own first H1 (correctly cased) over the auto-titled definition.page.
       const h1 = body && body.match(/^#\s+(.+?)\s*$/m);
       const title = (h1 ? h1[1] : (p.title || slug)).trim();
@@ -100,36 +111,64 @@ function addMenuItems(node: Record<string, unknown>, parentId: number | null, de
 }
 if (isMenuGroup(cfg.menu)) addMenuItems(cfg.menu, null, 0, []);
 
-// ---- Assets: generate model.svg from PlantUML (fall back to publisher's if no jar) ----
+// ---- Assets: copy first-party files into the DB, then build.tsx writes them out ----
 const insAsset = db.prepare('INSERT OR REPLACE INTO Assets (Name, Mime, Content) VALUES (?,?,?)');
-function findPlantumlJar(): string | null {
-  for (const c of ['template/scripts/plantuml.jar', 'input-cache/plantuml.jar', 'site-gen/vendor/plantuml.jar']) if (existsSync(c)) return c;
-  return null;
+function safeAssetName(name: string): string {
+  const normalized = name.replace(/\\/g, '/');
+  const parts = normalized.split('/');
+  if (!normalized || normalized.startsWith('/') || parts.some((part) => !part || part === '..')) {
+    throw new Error(`Unsafe asset name: ${name}`);
+  }
+  return normalized;
 }
-const puml = 'input/images-source/model.plantuml';
-let svg: string | null = null;
-const jar = findPlantumlJar();
-if (existsSync(puml) && jar) {
-  try {
-    execFileSync('java', ['-jar', jar, '-tsvg', '-pipe'], { input: readFileSync(puml), maxBuffer: 1 << 24, stdio: ['pipe', 'pipe', 'ignore'] });
-    svg = execFileSync('java', ['-jar', jar, '-tsvg', '-pipe'], { input: readFileSync(puml), maxBuffer: 1 << 24 }).toString('utf8');
-  } catch { svg = null; }
+function safePathUnder(root: string, relName: string): string {
+  const safeName = safeAssetName(relName);
+  const candidate = normalize(join(root, safeName));
+  const rel = relative(root, candidate);
+  if (rel.startsWith('..') || isAbsolute(rel)) throw new Error(`Asset path escapes ${root}: ${relName}`);
+  return candidate;
 }
-if (!svg && existsSync('temp/pages/_includes/model.svg')) svg = readFileSync('temp/pages/_includes/model.svg', 'utf8'); // fallback (ingested ONCE, still single-source)
-if (svg) insAsset.run('model.svg', 'image/svg+xml', svg);
-
-// IG images referenced by narrative (markdown ![]() / <img src>) — ingest so the
-// generator stays single-source. Binary stored as BLOB.
-const IMGDIR = project.imageDir;
-const mimeOf = (f: string) => f.endsWith('.png') ? 'image/png' : f.endsWith('.svg') ? 'image/svg+xml'
-  : (f.endsWith('.jpg') || f.endsWith('.jpeg')) ? 'image/jpeg' : f.endsWith('.gif') ? 'image/gif'
-  : f.endsWith('.webp') ? 'image/webp' : 'application/octet-stream';
-if (existsSync(IMGDIR)) {
-  for (const f of readdirSync(IMGDIR)) {
-    const p = `${IMGDIR}/${f}`;
-    if (statSync(p).isFile()) insAsset.run(f, mimeOf(f), readFileSync(p));
+const mimeOf = (f: string) => {
+  const lower = f.toLowerCase();
+  return lower.endsWith('.png') ? 'image/png' : lower.endsWith('.svg') ? 'image/svg+xml'
+    : (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) ? 'image/jpeg' : lower.endsWith('.gif') ? 'image/gif'
+    : lower.endsWith('.webp') ? 'image/webp' : lower.endsWith('.xhtml') || lower.endsWith('.html') ? 'text/html'
+    : lower.endsWith('.md') ? 'text/markdown' : lower.endsWith('.txt') ? 'text/plain' : 'application/octet-stream';
+};
+let imageAssets = 0;
+let includeAssets = 0;
+function ingestAsset(name: string, path: string) {
+  insAsset.run(safeAssetName(name), mimeOf(name), readFileSync(path));
+}
+function ingestImageDir(root: string, rel = '') {
+  if (!existsSync(root)) return;
+  for (const e of readdirSync(join(root, rel), { withFileTypes: true })) {
+    const next = rel ? `${rel}/${e.name}` : e.name;
+    const p = safePathUnder(root, next);
+    if (e.isDirectory()) ingestImageDir(root, next);
+    else if (e.isFile()) {
+      ingestAsset(next, p);
+      imageAssets++;
+    }
   }
 }
+
+// Publisher-generated include outputs are copied only when authored markdown
+// actually references the include. This keeps generic ingest free of project
+// filenames such as "model.svg".
+const publisherIncludeDirs = project.publisherIncludeDirs || [];
+for (const includeName of pageIncludeNames) {
+  const safeName = safeAssetName(includeName);
+  for (const dir of publisherIncludeDirs) {
+    const p = safePathUnder(dir, safeName);
+    if (existsSync(p) && statSync(p).isFile()) {
+      ingestAsset(safeName, p);
+      includeAssets++;
+      break;
+    }
+  }
+}
+ingestImageDir(project.imageDir);
 
 const m = Object.fromEntries((db.query('SELECT Name, Value FROM Metadata').all() as any[]).map((r) => [r.Name, r.Value]));
 const counts = {
@@ -141,4 +180,4 @@ const counts = {
 db.close();
 console.log(`Ingest: ${PKG} → ${SITE}`);
 console.log(`  IG ${m.igId} · ${m.packageId}#${m.igVer} · FHIR ${m.version} · generated ${m.genDay}`);
-console.log(`  +${counts.pages} pages (${counts.withBody} with body) · ${counts.menu} menu rows · ${counts.assets} assets · plantuml=${jar ? 'generated' : 'fallback/none'}`);
+console.log(`  +${counts.pages} pages (${counts.withBody} with body) · ${counts.menu} menu rows · ${counts.assets} assets (${imageAssets} images, ${includeAssets} publisher includes${preserveAssets ? ', preserved fixture assets' : ''})`);

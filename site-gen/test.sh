@@ -45,7 +45,7 @@ assert "machine JSON published"        "ls '$O'/StructureDefinition-*.json >/dev
 assert "project.css linked"            "grep -q 'assets/project.css' '$O/index.html'"
 assert "no /en/ shell (root site)"     "[ ! -d '$O/en' ]"
 assert "design from designs/ (cycle css)" "[ -f '$O/assets/cycle/base.css' ]"
-assert "no ig-template path dep"       "[ -z \"\$(grep -rl 'ig-template/' site-gen --include=*.ts --include=*.tsx 2>/dev/null)\" ]"
+assert "no Publisher template path dep" "[ -z \"\$(grep -rl 'template/' site-gen --include=*.ts --include=*.tsx 2>/dev/null)\" ]"
 # project artifacts (viewers/skill.zip) are injected by build:sitegen, not the
 # renderer smoke test; the orchestrator's final strict link check covers those.
 

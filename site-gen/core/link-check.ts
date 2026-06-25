@@ -5,6 +5,7 @@
  * artifacts injected by a later build step. Fails-loud is the caller's job.
  */
 import { readFileSync, existsSync } from 'node:fs';
+import { posix as path } from 'node:path';
 
 /** Candidate internal refs from href / src / srcset. */
 export function collectLocalRefs(html: string): string[] {
@@ -32,9 +33,11 @@ export function checkInternalLinks(args: {
       if (/^\s*javascript:/i.test(h)) { broken.push(`${file} → ${h} (forbidden javascript: link)`); continue; }
       if (/^(https?:|mailto:|tel:|#|data:|\/)/.test(h)) continue;
       const target = h.split('#')[0].split('?')[0];
-      if (!target || target.startsWith('assets/')) continue;
-      if (args.isExternalLink(h)) continue; // injected by a later build step (config-declared)
-      if (!args.emitted.has(target) && !existsSync(`${args.outDir}/${target}`)) broken.push(`${file} → ${h}`);
+      if (!target) continue;
+      const resolved = path.normalize(path.join(path.dirname(file), target));
+      if (resolved.startsWith('../')) { broken.push(`${file} → ${h} (escapes output directory)`); continue; }
+      if (args.isExternalLink(h) || args.isExternalLink(resolved)) continue; // injected by a later build step (config-declared)
+      if (!args.emitted.has(resolved) && !existsSync(`${args.outDir}/${resolved}`)) broken.push(`${file} → ${h}`);
     }
   }
   return broken;

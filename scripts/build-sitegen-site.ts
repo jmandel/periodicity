@@ -14,6 +14,7 @@ import { readdir, cp, rm, writeFile } from 'node:fs/promises';
 import { join, relative } from 'node:path';
 import { viewerBuildEnv, viewerOutput, viewerVariants } from './viewer-variants.ts';
 import { checkInternalLinks } from '../site-gen/core/link-check.ts';
+import { project } from '../site-gen/project/cycle.ts';
 
 const root = `${import.meta.dir}/..`;
 const OUT = `${root}/site-gen/out`;
@@ -73,7 +74,7 @@ await step('package sample SMART Health Link', ['bun', 'scripts/gen-shl.ts'], {
 });
 await mirrorDemoAssets(primary.output.assets, others.map((v) => v.output.assets));
 await step('package agent assets (skill.zip)', ['bun', 'scripts/build-agent-assets.ts'], { AGENT_OUTDIR: OUT });
-const cname = Bun.env.PAGES_CNAME || 'cycle.fhir.me';
+const cname = Bun.env.PAGES_CNAME || project.cname;
 await writeFile(join(OUT, 'CNAME'), `${cname}\n`);
 
 // 12. final whole-site link check (strict: every internal href/src must now exist)

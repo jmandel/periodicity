@@ -86,6 +86,14 @@ export function asset(name: string): string | null {
   if (!r) return null;
   return typeof r.Content === 'string' ? r.Content : new TextDecoder().decode(r.Content);
 }
+export function textAsset(name: string): string | null {
+  const r = db.query('SELECT Mime, Content FROM Assets WHERE Name = ?').get(name) as any;
+  if (!r) return null;
+  const mime = String(r.Mime || '').toLowerCase();
+  const textual = mime.startsWith('text/') || mime === 'image/svg+xml' || mime === 'application/xml' || mime === 'application/xhtml+xml';
+  if (!textual) return null;
+  return typeof r.Content === 'string' ? r.Content : new TextDecoder().decode(r.Content);
+}
 /** All ingested assets (text or binary) to write out verbatim. */
 export function assets(): { Name: string; Mime: string; Content: string | Uint8Array }[] {
   return db.query('SELECT Name, Mime, Content FROM Assets').all() as any[];
