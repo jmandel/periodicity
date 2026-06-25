@@ -57,27 +57,27 @@ resources:
   StructureDefinition/period-tracking-bundle:
     extension:
       - url: http://hl7.org/fhir/tools/StructureDefinition/resource-sort
-        valueInteger: 20
+        valueInteger: 60
   StructureDefinition/menstrual-flow-fact:
     extension:
       - url: http://hl7.org/fhir/tools/StructureDefinition/resource-sort
-        valueInteger: 30
+        valueInteger: 20
   StructureDefinition/symptom-fact:
     extension:
       - url: http://hl7.org/fhir/tools/StructureDefinition/resource-sort
-        valueInteger: 40
+        valueInteger: 30
   StructureDefinition/numeric-pain-severity-fact:
     extension:
       - url: http://hl7.org/fhir/tools/StructureDefinition/resource-sort
-        valueInteger: 50
+        valueInteger: 40
   StructureDefinition/basal-body-temperature-fact:
     extension:
       - url: http://hl7.org/fhir/tools/StructureDefinition/resource-sort
-        valueInteger: 60
+        valueInteger: 50
   StructureDefinition/period-tracking-fact:
     extension:
       - url: http://hl7.org/fhir/tools/StructureDefinition/resource-sort
-        valueInteger: 10
+        valueInteger: 70
   ValueSet/menstrual-flow:
     extension:
       - url: http://hl7.org/fhir/tools/StructureDefinition/resource-sort

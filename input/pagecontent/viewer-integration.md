@@ -4,7 +4,7 @@ A receiver needs to turn a decrypted Bundle into something a clinician (or the p
 
 Reference viewer source: `viewer-src/` and `view3-src/` in the IG repo.
 
-## The pipeline (what any viewer does)
+## Viewer pipeline
 
 ```mermaid
 flowchart LR
@@ -34,7 +34,7 @@ The reference implementation, file by file (all dependency-light, browser + bun 
 A real `#shlink:/...` fragment prepopulates the chooser and keeps the SHLink key off the server; the recipient enters or accepts the visible name field and clicks Open before the viewer sends the SHLink `recipient` value, decrypts, and renders. A bare visit shows the same explicit chooser (paste a bare `shlink:/...`, scan a QR via the device camera, or load a co-located `shlink.txt` demo link into the paste field) rather than silently rendering demo data as if it were the visitor's own.
 3. **Embed the transform.** If your app already has UI, reuse just `transform.mjs` + `viewmodel.mjs` to get the view model and render with your own components.
 
-## Key derivation rules the transform encodes (match these if you write your own)
+## Transform derivation rules
 
 - **Bleeding day** = a `cycle#menstrual-bleeding` fact with `valueBoolean=true`. Legacy or partial inputs may fall back to flow ≥ spotting, but conformant exports emit the boolean core.
 - **No-bleeding day** = a `cycle#menstrual-bleeding` fact with `valueBoolean=false`. Missing means not recorded, not absent.

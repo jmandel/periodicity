@@ -34,12 +34,12 @@ const VALUE_KEYS = new Set(["valueQuantity", "valueCodeableConcept", "valueStrin
 const RESOURCE_SORT = "http://hl7.org/fhir/tools/StructureDefinition/resource-sort";
 const EXPECTED_ARTIFACT_SORT = new Map([
   ["StructureDefinition/menstrual-bleeding-fact", 10],
-  ["StructureDefinition/period-tracking-bundle", 20],
-  ["StructureDefinition/menstrual-flow-fact", 30],
-  ["StructureDefinition/symptom-fact", 40],
-  ["StructureDefinition/numeric-pain-severity-fact", 50],
-  ["StructureDefinition/basal-body-temperature-fact", 60],
-  ["StructureDefinition/period-tracking-fact", 10],
+  ["StructureDefinition/menstrual-flow-fact", 20],
+  ["StructureDefinition/symptom-fact", 30],
+  ["StructureDefinition/numeric-pain-severity-fact", 40],
+  ["StructureDefinition/basal-body-temperature-fact", 50],
+  ["StructureDefinition/period-tracking-bundle", 60],
+  ["StructureDefinition/period-tracking-fact", 70],
   ["ValueSet/menstrual-flow", 10],
   ["ValueSet/common-tracker-symptoms", 20],
   ["ValueSet/ptmvp-fact-category", 30],

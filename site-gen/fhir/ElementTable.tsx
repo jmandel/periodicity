@@ -97,7 +97,10 @@ function ElementRow({ e, resolve }: { e: El; resolve: ResolveType }) {
   if (!hasDeep) return <div className="el" style={indent}>{head}{body}</div>;
   return (
     <details className="el" style={indent}>
-      <summary>{head}{body}</summary>
+      <summary>
+        <span className="el-summary-main">{head}{body}</span>
+        <span className="el-detail-action" aria-hidden="true"></span>
+      </summary>
       {deep}
     </details>
   );
@@ -118,7 +121,19 @@ export function ElementTable({ elements, resolve }: { elements: El[]; resolve: R
   if (!elements.length) return <p className="muted">No elements.</p>;
   return (
     <div className="el-list" role="table" aria-label="Elements">
-      <div className="el-list-head" role="row"><span>Element · cardinality · type</span></div>
+      <div className="el-list-head" role="row">
+        <span>Element · cardinality · type</span>
+        <button
+          type="button"
+          className="el-toggle-all"
+          data-toggle-all="details.el"
+          data-toggle-scope=".el-list"
+          data-label-collapsed="Expand all details"
+          data-label-expanded="Collapse all details"
+        >
+          Expand all details
+        </button>
+      </div>
       {elements.map((e) => <ElementRow key={e.id || e.path} e={e} resolve={resolve} />)}
     </div>
   );

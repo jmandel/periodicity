@@ -8,7 +8,7 @@ This page is a condensed, self-contained reference for the SHL wire format plus 
 
 An SHL is a small JSON payload, base64url-encoded after `shlink:/`, that points a receiver at **encrypted file(s)** and carries the **decryption key in the link fragment** so the host stays blind. The shareable form can be the bare `shlink:/<b64url>` or a viewer launch URL such as `<viewer>#shlink:/<b64url>`. Prefer a viewer-prefixed form for broad patient-to-clinician sharing because it opens cleanly from ordinary QR scanners and browsers; SHL-aware provider scanners can scan either form and extract the embedded `shlink:/...`. When a viewer prefix is used, the `#` fragment (key included) never reaches a server.
 
-### The `shlink:/` payload
+### `shlink:/` payload
 
 `shlink:/` + base64url(minified JSON), with these fields:
 

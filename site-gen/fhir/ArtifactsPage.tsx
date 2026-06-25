@@ -1,6 +1,7 @@
 import React from 'react';
 import { Tag } from '../ds/Tag.jsx';
 import type { ResourceRow } from '../core/db';
+import { profileGroupLabel } from './profileGroups';
 
 const GROUPS: { title: string; types: string[]; accent: string }[] = [
   { title: 'Profiles', types: ['StructureDefinition'], accent: 'var(--menstrual)' },
@@ -28,7 +29,7 @@ export function ArtifactsPage({ resources, page }: { resources: ResourceRow[]; p
   return (
     <>
       <section id="overview">
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', letterSpacing: 'var(--tracking-eyebrow)', textTransform: 'uppercase', color: 'var(--menstrual-deep)', fontWeight: 600 }}>The whole IG</div>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', letterSpacing: 'var(--tracking-eyebrow)', textTransform: 'uppercase', color: 'var(--menstrual-deep)', fontWeight: 600 }}>Artifact index</div>
         <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 'var(--text-3xl)', letterSpacing: 'var(--tracking-tight)', margin: '6px 0 12px', lineHeight: 'var(--leading-tight)' }}>Artifacts</h1>
         <p style={{ font: 'var(--type-lead)', color: 'var(--ink-700)', maxWidth: '62ch', margin: '0 0 8px' }}>
           Everything this IG defines, rendered the same way every time and built directly from the IG Publisher's <code>package.db</code>.
@@ -46,16 +47,23 @@ export function ArtifactsPage({ resources, page }: { resources: ResourceRow[]; p
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-2xs)', color: 'var(--ink-300)' }}>{rows.length}</span>
             </div>
             <div className="art-card">
-              {rows.map((r) => (
-                <div className="art-row" key={r.Id}>
-                  <div className="art-summary">
-                    <span className="art-name">{r.Title || r.Name || r.Id}</span>
-                    <span className="art-kind"><Tag>{r.sdType || r.Type}</Tag></span>
-                    <span className="art-short">{shortOf(r.Description)}</span>
-                  </div>
-                  {detail(r)}
-                </div>
-              ))}
+              {rows.map((r, i) => {
+                const groupLabel = g.title === 'Profiles' ? profileGroupLabel(r.Id) : null;
+                const priorGroupLabel = g.title === 'Profiles' && i > 0 ? profileGroupLabel(rows[i - 1].Id) : null;
+                return (
+                  <React.Fragment key={r.Id}>
+                    {groupLabel && groupLabel !== priorGroupLabel && <div className="art-subgroup">{groupLabel}</div>}
+                    <div className="art-row">
+                      <div className="art-summary">
+                        <span className="art-name">{r.Title || r.Name || r.Id}</span>
+                        <span className="art-kind"><Tag>{r.sdType || r.Type}</Tag></span>
+                        <span className="art-short">{shortOf(r.Description)}</span>
+                      </div>
+                      {detail(r)}
+                    </div>
+                  </React.Fragment>
+                );
+              })}
             </div>
           </section>
         );

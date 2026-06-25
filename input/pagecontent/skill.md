@@ -46,7 +46,7 @@ This restraint is the whole point: the data is sensitive (reproductive, sexual, 
 
 9. **Verify end to end, tracking progress as you go.** Keep the step-1 plan checklist live - tick items as you complete them (the plan tracks progress; the journal records decisions). Validate the Bundle against the IG; round-trip encrypt/decrypt; confirm the viewer renders; confirm the host never receives plaintext or the key. Keep a journal of mapping decisions and deferred fields.
 
-## The data model in one screen
+## Data model in one screen
 
 - **Bundle** (`period-tracking-bundle`): a `collection` scoped to one person with at least one menstrual bleeding fact. Patient, Device, and Binary native snapshot are optional.
 - **Fact base** (`period-tracking-fact`): abstract base for one independently meaningful `Observation` — a `code`, an `effectiveDateTime` at date or timestamp precision, and exactly one `value[x]`. `subject` and `device` are optional.
@@ -74,6 +74,6 @@ Skim all of these (and the IG home) before locking the plan; re-read each in dep
 - [Viewer integration](viewer-integration.html) - how the reference client-side viewer works (decrypt, transform, render) and how to reuse or embed it. **Read before building a viewer.**
 - [Journal and planning templates](journal-templates.html) - the plan checklist, journal, and mapping-issue templates to keep in the target repo.
 
-## What "done" looks like
+## Completion criteria
 
 The app can demonstrate the patient→clinician path end to end: a FHIR Bundle built from real stored data, validated against the IG; an encrypted SHL the user can share (link or QR); a client-side render of the summary; and a verified privacy boundary (the host never sees plaintext or the key). Mapping decisions, intentionally omitted fields, and any incompatibilities are written down.

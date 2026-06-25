@@ -28,6 +28,7 @@ Description: "Abstract base profile for one independently meaningful fact entere
 * category from PtmvpFactCategoryVS (required)
 * code 1..1 MS
 * subject 0..1 MS
+* subject only Reference(Patient)
 * effective[x] 1..1 MS
 * effective[x] only dateTime
 * effectiveDateTime 1..1 MS
@@ -40,6 +41,7 @@ Description: "Abstract base profile for one independently meaningful fact entere
 * bodySite MS
 * method MS
 * device 0..1 MS
+* device only Reference(Device)
 
 Profile: MenstrualBleedingFactObservation
 Parent: PeriodTrackingFactObservation

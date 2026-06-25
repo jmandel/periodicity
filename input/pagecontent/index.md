@@ -2,7 +2,7 @@
 
 This draft defines a deliberately small FHIR R4 exchange model for **patient-generated menstrual period tracking data**, plus a complete, working path for getting that data from a tracking app into a clinician's hands: export as FHIR, share as an encrypted **SMART Health Link**, and render in a **privacy-preserving client-side viewer**. The included viewer is a reference/default implementation; apps and provider systems can host their own viewer, use an EHR-integrated scanner, or exchange bare `shlink:/...` values. The guide is designed for a first interoperable implementation across structurally different mobile and web apps.
 
-## The whole system at a glance
+## System at a glance
 
 <div class="ptmvp-diagram">
 <picture>
@@ -23,7 +23,7 @@ The same standardized SMART Health Link payload can be opened by any compatible 
 
 Inspect the data behind them: the [longitudinal example Bundle](Bundle-period-tracking-longitudinal-example.html) (a synthetic seven-cycle copper-IUD case — the same data each viewer renders).
 
-## The profiles
+## Profiles
 
 1. **[Period Tracking MVP Bundle](StructureDefinition-period-tracking-bundle.html)** — a FHIR `collection` Bundle scoped to one person's period-tracking data. It requires at least one bleeding core fact; Patient and Device resources are optional.
 2. **[Period Tracking Fact Observation](StructureDefinition-period-tracking-fact.html)** — the abstract base profile for one independently meaningful granular fact.
@@ -54,7 +54,7 @@ Source repository: **[{{ source_repo | replace: 'https://', '' }}]({{ source_rep
 
 An explicit negative may be exported only when the source can distinguish it from an untouched default. See [Scope and conformance principles](specification.html#scope-and-conformance-principles).
 
-## What the MVP covers — and deliberately excludes
+## Scope and exclusions
 
 The MVP has three adoption layers. **Layer 0: Core bleeding facts** is required for compatibility: `menstrual-bleeding` true/false at the source date or timestamp. **Layer 1: Structured optional facts** adds patient-rated flow, symptoms, numeric pain severity, and basal body temperature when available. **Layer 2: Native archive** optionally adds a FHIR `Binary` holding the exact native JSON selected for sharing — a lossless safety net for source fields outside the normalized facts.
 

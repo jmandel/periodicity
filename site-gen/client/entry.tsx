@@ -38,7 +38,9 @@ function chrome() {
   document.querySelectorAll<HTMLElement>('[data-toggle-all]').forEach((btn) => {
     const sel = btn.getAttribute('data-toggle-all')!;
     btn.addEventListener('click', () => {
-      const items = Array.from(document.querySelectorAll<HTMLDetailsElement>(sel));
+      const scopeSel = btn.getAttribute('data-toggle-scope');
+      const root = scopeSel ? btn.closest<HTMLElement>(scopeSel) : document;
+      const items = Array.from((root || document).querySelectorAll<HTMLDetailsElement>(sel));
       const anyClosed = items.some((d) => !d.open);
       items.forEach((d) => { d.open = anyClosed; });
       btn.textContent = anyClosed
@@ -71,13 +73,10 @@ function chrome() {
       const root = btn.closest<HTMLElement>('.copy-value');
       const code = root?.querySelector<HTMLElement>('.copy-value-code');
       const text = code?.textContent || '';
-      const label = btn.querySelector<HTMLElement>('[data-copy-label]');
       const markCopied = () => {
         btn.setAttribute('data-copied', 'true');
-        if (label) label.textContent = 'Copied';
         window.setTimeout(() => {
           btn.removeAttribute('data-copied');
-          if (label) label.textContent = 'Copy';
         }, 1200);
       };
       if (navigator.clipboard) {

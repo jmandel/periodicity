@@ -7,9 +7,8 @@ export function CopyValue({ value, label = 'value' }) {
   return (
     <span className="copy-value">
       <code className="copy-value-code">{text}</code>
-      <button type="button" className="copy-value-button" data-copy-value aria-label={`Copy ${label}`}>
+      <button type="button" className="copy-value-button" data-copy-value aria-label={`Copy ${label}`} title={`Copy ${label}`}>
         <Icon name="copy" size={13} strokeWidth={2.25} />
-        <span data-copy-label>Copy</span>
       </button>
     </span>
   );
