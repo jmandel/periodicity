@@ -7,6 +7,7 @@ const chrome = Bun.env.CHROMIUM || "chromium";
 const port = Number(Bun.env.CDP_PORT || "9225");
 const viewerUrl = Bun.env.VIEWER_URL || "http://localhost:5525/view";
 const expectedText = Bun.env.VIEWER_EXPECTED_TEXT || "Menstrual cycle review";
+const demoButtonText = Bun.env.VIEWER_DEMO_BUTTON_TEXT || "Load the synthetic demo";
 
 const proc = Bun.spawn([
   chrome,
@@ -90,10 +91,10 @@ async function main() {
     await cdp.send("Page.enable");
     await cdp.send("Runtime.enable");
     await cdp.send("Page.navigate", { url: viewerUrl });
-    await evaluate(cdp, waitForExpression("document.body.innerText.includes('Load the synthetic demo')"));
+    await evaluate(cdp, waitForExpression(`document.body.innerText.includes(${JSON.stringify(demoButtonText)})`));
 
-    const loaded = await evaluate(cdp, `(${async () => {
-      const button = [...document.querySelectorAll("button")].find((b) => b.textContent?.includes("Load the synthetic demo"));
+    const loaded = await evaluate(cdp, `(${async (demoText) => {
+      const button = [...document.querySelectorAll("button")].find((b) => b.textContent?.includes(demoText));
       if (!button) throw new Error("demo button not found");
       button.click();
       return await new Promise((resolve) => {
@@ -106,7 +107,7 @@ async function main() {
         };
         tick();
       });
-    }})()`);
+    }})(${JSON.stringify(demoButtonText)})`);
     if (!loaded.ok) throw new Error("demo button did not populate a raw shlink:/ value");
     if (loaded.text.includes("Could not render")) throw new Error("demo button caused an error state");
 
@@ -128,7 +129,7 @@ async function main() {
     }})(${JSON.stringify(expectedText)})`);
     if (!rendered.ok) throw new Error(`Open link did not render summary:\n${rendered.text}`);
 
-    console.log(`  [demo-click] OK - demo button prefilled shlink:/ and Open rendered ${JSON.stringify(expectedText)}`);
+    console.log(`  [demo-click] OK - ${viewerUrl} prefilled shlink:/ and Open rendered ${JSON.stringify(expectedText)}`);
     cdp.ws.close();
   } finally {
     proc.kill();

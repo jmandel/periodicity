@@ -6,16 +6,12 @@
  */
 import { cp, readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
+import { viewerBuildEnv, viewerOutput, viewerVariants } from "./viewer-variants.ts";
 
 const root = `${import.meta.dir}/..`;
 const exampleOut = `${root}/input/resources/Bundle-period-tracking-longitudinal-example.json`;
 const englishOut = `${root}/output/en`;
-const viewerAssetOut = `${root}/output/view-assets`;
-const viewerPageOut = `${root}/output/view.html`;
-const viewer2AssetOut = `${root}/output/view2-assets`;
-const viewer2PageOut = `${root}/output/view2.html`;
-const viewer3AssetOut = `${root}/output/view3-assets`;
-const viewer3PageOut = `${root}/output/view3.html`;
+const outputOut = `${root}/output`;
 const publisherJar = `${root}/input-cache/publisher.jar`;
 const viewerBase = Bun.env.VIEWER_BASE || "http://localhost:5525/view";
 const demoFiles = ["example.jwe", "shlink.txt", "_shlink-local.txt", "_shlink-local-ig.txt"];
@@ -70,44 +66,37 @@ await step("run IG Publisher", ["./_genonce.sh"]);
 await copyChildren(`${root}/output/en`, `${root}/output`);
 
 await rm(`${root}/output/view`, { recursive: true, force: true });
-for (const path of [viewerAssetOut, viewer2AssetOut, viewer3AssetOut]) await rm(path, { recursive: true, force: true });
-for (const path of [viewerPageOut, viewer2PageOut, viewer3PageOut]) await rm(path, { force: true });
+for (const variant of viewerVariants) {
+  const output = viewerOutput(variant, outputOut);
+  await rm(output.assets, { recursive: true, force: true });
+  await rm(output.page, { force: true });
+}
 
 if (Bun.env.PAGES_CNAME) {
   await Bun.write(`${root}/output/CNAME`, `${Bun.env.PAGES_CNAME}\n`);
 }
 
-await step("bundle viewer v1", ["bun", "scripts/build-viewer.ts"], {
-  VIEWER_OUTDIR: viewerAssetOut,
-  VIEWER_PAGE_OUT: viewerPageOut,
-});
-await step("bundle viewer v2", ["bun", "scripts/build-viewer.ts"], {
-  VIEWER_OUTDIR: viewer2AssetOut,
-  VIEWER_PAGE_OUT: viewer2PageOut,
-});
-await step("bundle viewer v3", ["bun", "scripts/build-viewer.ts"], {
-  VIEWER_OUTDIR: viewer3AssetOut,
-  VIEWER_PAGE_OUT: viewer3PageOut,
-  VIEWER_ENTRY: `${root}/view3-src/app.jsx`,
-  VIEWER_TEMPLATE: `${root}/view3-src/index.html`,
-});
+for (const variant of viewerVariants) {
+  await step(`bundle ${variant.label}`, ["bun", "scripts/build-viewer.ts"], viewerBuildEnv(variant, outputOut));
+}
+const [primaryViewer, ...otherViewers] = viewerVariants.map((variant) => ({ variant, output: viewerOutput(variant, outputOut) }));
 await step("package sample SMART Health Link", ["bun", "scripts/gen-shl.ts"], {
   BUNDLE_FILE: exampleOut,
-  SHL_OUTDIR: viewerAssetOut,
+  SHL_OUTDIR: primaryViewer.output.assets,
   VIEWER_BASE: viewerBase,
 });
-await mirrorDemoAssets(viewerAssetOut, [viewer2AssetOut, viewer3AssetOut]);
+await mirrorDemoAssets(primaryViewer.output.assets, otherViewers.map((viewer) => viewer.output.assets));
 await step("package agent assets", ["bun", "scripts/build-agent-assets.ts"], {
   AGENT_OUTDIR: `${root}/output`,
 });
 
 // Keep /en/ as a compatibility mirror for generated assets that are created
 // after Publisher/Jekyll finishes.
-for (const [page, out] of [[viewerPageOut, "view.html"], [viewer2PageOut, "view2.html"], [viewer3PageOut, "view3.html"]] as const) {
-  await cp(page, join(englishOut, out), { force: true });
+for (const { variant, output } of [primaryViewer, ...otherViewers]) {
+  await cp(output.page, join(englishOut, variant.pageName), { force: true });
 }
-for (const [assets, out] of [[viewerAssetOut, "view-assets"], [viewer2AssetOut, "view2-assets"], [viewer3AssetOut, "view3-assets"]] as const) {
-  await cp(assets, join(englishOut, out), { recursive: true, force: true });
+for (const { variant, output } of [primaryViewer, ...otherViewers]) {
+  await cp(output.assets, join(englishOut, variant.assetsDirName), { recursive: true, force: true });
 }
 await cp(`${root}/output/skill.zip`, join(englishOut, "skill.zip"), { force: true });
 await cp(`${root}/output/llms.txt`, join(englishOut, "llms.txt"), { force: true });

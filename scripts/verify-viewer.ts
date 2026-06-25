@@ -5,6 +5,7 @@
 import { mkdirSync } from "node:fs";
 import { join, normalize } from "node:path";
 import { parseShlink, resolveShl } from "../viewer-src/shl.mjs";
+import { viewerVariants } from "./viewer-variants.ts";
 
 const root = process.cwd();
 const port = Number(Bun.env.PORT || "5525");
@@ -15,8 +16,9 @@ const shotDir = "/tmp/viewer-verify";
 
 async function serveFile(pathname: string) {
   const decoded = decodeURIComponent(pathname);
-  const urlPath = decoded === "/view" || decoded === "/view.html"
-    ? "/view.html"
+  const matchedViewer = viewerVariants.find((variant) => decoded === `/${variant.id}` || decoded === `/${variant.pageName}`);
+  const urlPath = matchedViewer
+    ? `/${matchedViewer.pageName}`
     : decoded === "/" || decoded.endsWith("/")
       ? `${decoded}index.html`
       : decoded;
@@ -76,6 +78,23 @@ async function checkResolve() {
   console.log(`  [resolve] OK - decrypted ${bundle.entry.length} resources as Example User`);
 }
 
+async function checkDemoClick(variant: (typeof viewerVariants)[number], index: number) {
+  const url = `http://localhost:${port}/${variant.id}`;
+  const proc = Bun.spawn(["bun", "scripts/verify-viewer-clicks.ts"], {
+    env: {
+      ...Bun.env,
+      VIEWER_URL: url,
+      VIEWER_EXPECTED_TEXT: variant.expectedText,
+      VIEWER_DEMO_BUTTON_TEXT: variant.demoButtonText,
+      CDP_PORT: String(9225 + index),
+    },
+    stdout: "inherit",
+    stderr: "inherit",
+  });
+  const code = await proc.exited;
+  if (code !== 0) throw new Error(`${variant.id} click verification failed (exit ${code})`);
+}
+
 async function main() {
   mkdirSync(shotDir, { recursive: true });
   await Bun.write(`${shotDir}/.keep`, "");
@@ -88,13 +107,11 @@ async function main() {
     await checkPrefilled();
     console.log("3) recipient-aware resolve:");
     await checkResolve();
-    console.log("4) demo button and Open link:");
-    const proc = Bun.spawn(["bun", "scripts/verify-viewer-clicks.ts"], {
-      env: { ...Bun.env, VIEWER_URL: baseUrl },
-      stdout: "inherit",
-      stderr: "inherit",
-    });
-    rc = await proc.exited;
+    let stepNo = 4;
+    for (const [index, variant] of viewerVariants.entries()) {
+      console.log(`${stepNo++}) ${variant.id} demo button and Open link:`);
+      await checkDemoClick(variant, index);
+    }
   } catch (error: any) {
     rc = 1;
     console.error(error?.stack || error);

@@ -2,7 +2,7 @@
 
 A receiver needs to turn a decrypted Bundle into something a clinician (or the patient) can read. The project ships a complete, self-contained reference viewer you can **point at, reuse, or learn from**. It is optional: an app can host its own viewer, embed the transform in another UI, or scan bare SHLinks in a provider workflow.
 
-Reference viewer source: `viewer-src/` in the IG repo.
+Reference viewer source: `viewer-src/` and `view3-src/` in the IG repo.
 
 ## The pipeline (what any viewer does)
 
@@ -23,10 +23,12 @@ The reference implementation, file by file (all dependency-light, browser + bun 
 - `viewer-src/viewmodel.mjs` — derive descriptive metrics from the view model (the UI hard-codes no numbers).
 - `viewer-src/summary.jsx` — the render layer (React): cycle-comparison strips, per-cycle table, bleeding/pain timeline, symptom heatmap, fertility (BBT) panel, day detail.
 - `viewer-src/app.jsx` — glue: read `#shlink:/…` from the URL, paste field, camera scan, or generated `shlink.txt` demo link; prepopulate the chooser; then decrypt, transform, and render after the recipient clicks Open.
+- `viewer-src/view2/` — a binary-first clinician viewer variant. It reuses the same SHLink/FHIR transform layer, then derives cycle metrics from the Layer 0 date + bleeding core before displaying optional overlays.
+- `view3-src/` — a bleeding-first alternate viewer that foregrounds Layer 0 extrapolations and then shows richer layers when present.
 
 ## Reuse options
 
-1. **Host the reference viewer.** `scripts/build-viewer.ts` bundles viewer source into self-contained pages plus asset directories (no CDN, no runtime transpile). Local and site builds publish `view.html`, `view2.html`, and `view3.html` side by side. `view.html` is the original reference viewer; `view2.html` is a second launch page for the same implementation; `view3.html` is a bleeding-first alternate built from `view3-src/`.
+1. **Host the reference viewer.** `scripts/build-viewer.ts` bundles viewer source into self-contained pages plus asset directories (no CDN, no runtime transpile). Local and site builds publish `view.html`, `view2.html`, and `view3.html` side by side from a single viewer-variant registry. `view.html` is the original reference viewer; `view2.html` is the binary-first clinician viewer built from `viewer-src/view2/`; `view3.html` is the bleeding-first alternate built from `view3-src/`.
 2. **Embed the core.** Reuse `viewer-src/shl.mjs`, `viewer-src/jwe.mjs`, and `viewer-src/transform.mjs` inside your app while replacing the render layer.
 
 A real `#shlink:/...` fragment prepopulates the chooser and keeps the SHLink key off the server; the recipient enters or accepts the visible name field and clicks Open before the viewer sends the SHLink `recipient` value, decrypts, and renders. A bare visit shows the same explicit chooser (paste a bare `shlink:/...`, scan a QR via the device camera, or load a co-located `shlink.txt` demo link into the paste field) rather than silently rendering demo data as if it were the visitor's own.
@@ -45,4 +47,4 @@ Decrypt and render **client-side only**. Never POST the decrypted FHIR back to a
 
 ## Verifying a viewer headlessly
 
-The IG repo's `scripts/verify-viewer.ts` serves the built output, drives headless Chromium against both the chooser at `/view` and `/view#shlink:/…`, asserts the fragment URL prepopulates without auto-rendering, and then resolves the SHLink with a recipient name. Adapt it for your own host. (Assert on the *presence* of rendered sections, not the *absence* of an error string — app source text lives in the DOM/bundle and would yield false negatives.)
+The IG repo's `scripts/verify-viewer.ts` serves the built output, drives headless Chromium against the chooser at `/view` and `/view#shlink:/…`, asserts the fragment URL prepopulates without auto-rendering, resolves the SHLink with a recipient name, and smoke-tests the demo/Open flow for `view`, `view2`, and `view3`. Adapt it for your own host. (Assert on the *presence* of rendered sections, not the *absence* of an error string — app source text lives in the DOM/bundle and would yield false negatives.)
