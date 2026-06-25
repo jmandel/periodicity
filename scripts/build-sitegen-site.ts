@@ -21,7 +21,7 @@ const OUT = `${root}/site-gen/out`;
 const SITE_DB = `${root}/temp/site-gen/site.db`;
 const exampleOut = `${root}/input/resources/Bundle-period-tracking-longitudinal-example.json`;
 const publisherJar = `${root}/input-cache/publisher.jar`;
-const viewerBase = Bun.env.VIEWER_BASE || 'http://localhost:5525/view';
+const viewerBase = Bun.env.VIEWER_BASE || `https://${project.cname}/view`;
 const demoFiles = ['example.jwe', 'shlink.txt', '_shlink-local.txt', '_shlink-local-ig.txt'];
 
 async function step(name: string, cmd: string[], env: Record<string, string> = {}) {
