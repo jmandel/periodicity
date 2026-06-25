@@ -8,7 +8,7 @@ A compact FHIR R4 implementation guide for sharing granular patient-generated me
 - 1 project CodeSystem containing 8 concepts
 - 3 ValueSets (menstrual flow; a non-binding common-symptoms starter set; fact categories)
 - complete FSH source
-- a generated worked example: a synthetic seven-cycle **longitudinal example Bundle** produced during local/CI builds
+- generated worked examples: a synthetic seven-cycle **longitudinal example Bundle** plus small standalone examples for the concrete profiles
 - clinician-display guidance
 - an agent skill (`skill/`) for adding IG support to a tracking app
 - SMART Health Link packaging guidance
@@ -18,7 +18,7 @@ A compact FHIR R4 implementation guide for sharing granular patient-generated me
 
 ## Generated artifacts (bun)
 
-Generated examples, SHLink files, and bundled viewer assets are build products. They are not committed. Local builds write them under `dist/`; the GitHub Pages workflow copies the generated example Bundle into `input/resources/` inside the runner before invoking the IG Publisher, then adds the viewer page at `output/view.html` and sample SHLink assets under `output/view-assets/`.
+Generated examples, SHLink files, and bundled viewer assets are build products. They are not committed. Local builds write them under `dist/`; the GitHub Pages workflow copies generated example resources into `input/resources/` inside the runner before invoking the IG Publisher, then adds the viewer pages and sample SHLink assets.
 
 ```bash
 bun install          # one-time, restores esbuild + React for the viewer build
@@ -28,7 +28,7 @@ bun run build:site   # full IG Publisher + viewer build under output/
 
 `bun run build` creates:
 
-- `dist/examples/Bundle-period-tracking-longitudinal-example.json` — the synthetic seven-cycle example;
+- `dist/examples/Bundle-period-tracking-longitudinal-example.json` and `dist/examples/Observation-*.json` — the synthetic seven-cycle Bundle and standalone profile examples;
 - `dist/view-assets/example.jwe` + `shlink.txt` — the worked SMART Health Link;
 - `dist/view.html` + `dist/view-assets/{app.js,index.html}` — the bundled viewer SPA.
 

@@ -6,9 +6,9 @@ This guide is designed for incremental adoption. Start with the bleeding calenda
 
 | Layer | Name | Compatibility meaning |
 |---|---|---|
-| **Layer 0** | **Bleeding calendar** | Required. Each recorded date or timestamp says whether menstrual bleeding was present: `cycle#menstrual-bleeding` with `valueBoolean=true` or `false`. |
-| **Layer 1** | **Optional structured facts** | Optional details such as flow, symptoms, numeric pain severity, and basal body temperature. Add them only when the source app really has the data. |
-| **Layer 2** | **Native archive** | Optional exact source-data snapshot, carried as a FHIR `Binary`. This helps audit, migration, and future remapping. It does not replace Layer 0 or Layer 1. |
+| **Layer&nbsp;0** | **Bleeding calendar** | Required. Each recorded date or timestamp says whether menstrual bleeding was present: `cycle#menstrual-bleeding` with `valueBoolean=true` or `false`. |
+| **Layer&nbsp;1** | **Optional structured facts** | Optional details such as flow, symptoms, numeric pain severity, and basal body temperature. Add them only when the source app really has the data. |
+| **Layer&nbsp;2** | **Native archive** | Optional exact source-data snapshot, carried as a FHIR `Binary`. This helps audit, migration, and future remapping. It does not replace Layer 0 or Layer 1. |
 
 A **Normalized MVP Export** includes Layer 0 and may include Layer 1. A **Complete MVP Export** is a Normalized MVP Export plus Layer 2.
 
@@ -88,7 +88,7 @@ A future profile may carry precomputed summaries with `derivedFrom` references. 
 
 ## Data model
 
-### Resource graph
+### Bundle contents
 
 {% capture model_diagram %}{% include model.svg %}{% endcapture %}
 <div class="ptmvp-diagram">
@@ -107,7 +107,7 @@ The MVP does not define a daily grouping Observation. Receivers can group facts 
 
 ### Fact shape
 
-The abstract Period Tracking Fact Observation permits four result forms:
+The abstract Period Tracking Fact profile permits four result forms:
 
 - `valueCodeableConcept` for flow, symptoms, and ordinal source-coded facts;
 - `valueQuantity` for numeric pain and temperature;
@@ -173,19 +173,29 @@ In this table, `cycle#...` means the project [Period Tracking MVP Codes](CodeSys
 | Symptom | `cycle#symptom` | `valueCodeableConcept`: preferred starter ValueSet concept when exact; otherwise app-native coding and/or text | Optional Layer 1 symptom fact. One Observation per selected symptom. Do not force a nearby SNOMED finding. |
 | Numeric pain | LOINC `72514-3` - Pain severity 0-10 verbal numeric rating | Quantity using UCUM `{score}` | Optional Layer 1 numeric pain fact. Use only for a true 0-10 rating. |
 | Ordinal pain | LOINC `38208-5` - Pain severity - Reported, or a stable app/project code | Standard qualifier or app-native coded value | Optional app-native Layer 1 fact. Do not turn "unbearable" into a 10/10 score or a near-match qualifier. |
-| Basal body temperature | LOINC `8310-5` - Body temperature | UCUM temperature Quantity | Optional Layer 1 temperature fact. Add SNOMED CT `281660007` as method when the source establishes basal measurement. |
+| Basal body temperature | LOINC `8310-5` - Body temperature | UCUM temperature Quantity | Optional Layer 1 temperature fact. |
 | Mood-like symptoms | `cycle#symptom` | Preferred symptom concept such as SNOMED CT depressed mood when exact; otherwise app-native coding/text | Optional Layer 1 symptom fact. Preserve the original source label. |
 
-### Standard symptom examples
+### Common symptom starter codes
 
-The symptom profile has a preferred, non-closed starter ValueSet. Implementers SHOULD use exact SNOMED CT concepts from that set when they fit, but a stable app-native code is better than a close-but-wrong standard code. Examples verified in the terminology releases used for this draft include:
+The symptom profile has a preferred, non-closed starter ValueSet. Implementers SHOULD use exact SNOMED CT concepts from that set when they fit, but a stable app-native code is better than a close-but-wrong standard code. The starter ValueSet currently contains:
 
-| Source meaning | Preferred coding |
-|---|---|
-| Menstrual cramp | `431416001` - Menstrual cramp (finding) |
-| Headache | `25064002` - Headache (finding) |
-| Depressed mood | `366979004` - Depressed mood (finding), only when the source meaning is exact |
-| Stress | `73595000` - Stress (finding) |
+{% sql
+select
+  json_extract(c.value, '$.display') as Meaning,
+  case json_extract(inc.value, '$.system')
+    when 'http://snomed.info/sct' then 'SNOMED CT'
+    when 'http://loinc.org' then 'LOINC'
+    else json_extract(inc.value, '$.system')
+  end as System,
+  json_extract(c.value, '$.code') as Code
+from Resources r,
+  json_each(r.Json, '$.compose.include') inc,
+  json_each(inc.value, '$.concept') c
+where r.Type = 'ValueSet'
+  and r.Id = 'common-tracker-symptoms'
+order by c.key
+%}
 
 Additional app symptoms may remain local until a mapping is reviewed, and some may remain local permanently if no standard concept preserves the source meaning.
 
@@ -197,15 +207,25 @@ When equivalence is uncertain, retain only the source coding and text. Do not ad
 
 ### Flow normalization
 
-Map a source application's ordinal flow categories to the project codes as follows:
+Map a source application's ordinal flow categories to the closest project code whose definition preserves the source meaning:
 
-| Source label | MVP code |
-|---|---|
-| no flow / none, explicitly selected | `flow-none` |
-| spotting | `flow-spotting` |
-| light | `flow-light` |
-| medium / moderate | `flow-moderate` |
-| heavy | `flow-heavy` |
+{% sql
+with flow_codes as (
+  select json_extract(c.value, '$.code') as code, c.key as ord
+  from Resources vs,
+    json_each(vs.Json, '$.compose.include') inc,
+    json_each(inc.value, '$.concept') c
+  where vs.Type = 'ValueSet'
+    and vs.Id = 'menstrual-flow'
+)
+select
+  fc.code as "MVP code",
+  concepts.Display,
+  concepts.Definition as Meaning
+from flow_codes fc
+left join Concepts concepts on concepts.Code = fc.code
+order by fc.ord
+%}
 
 A source with multiple simultaneous or ambiguous flow tags SHOULD retain those raw tags in the native archive and SHOULD NOT silently choose one normalized value.
 
@@ -219,18 +239,19 @@ Diary text is not a normalized MVP fact. A complete export MAY preserve notes in
 
 ### Project CodeSystem
 
-The MVP project CodeSystem contains exactly eight concepts:
+The MVP project CodeSystem contains the following concepts:
 
-| Code | Meaning |
-|---|---|
-| `menstrual-bleeding` | Layer 0 boolean core fact: whether the source reports bleeding at the source date or timestamp. |
-| `menstrual-flow` | Observation code for the app-style flow category. |
-| `symptom` | Observation code for a symptom fact; the specific symptom is in `valueCodeableConcept`. |
-| `flow-none` | Explicit no-flow selection. |
-| `flow-spotting` | Spotting category. |
-| `flow-light` | Light category. |
-| `flow-moderate` | Middle or moderate category. |
-| `flow-heavy` | Highest or heavy category. |
+{% sql
+select
+  Code,
+  Display,
+  Definition as Meaning
+from Concepts
+where ResourceKey = (
+  select Key from Resources where Type = 'CodeSystem' and Id = 'cycle'
+)
+order by Key
+%}
 
 The bleeding, flow, and symptom concepts are intentionally project-defined while the IG is proving out the cross-app minimum. `menstrual-bleeding` is not a diagnosis and is not a statement that the bleeding was clinically adjudicated as menstruation. Consumer-app "heavy" does not necessarily mean measured heavy menstrual bleeding, profuse vaginal bleeding, or any particular blood-loss threshold.
 

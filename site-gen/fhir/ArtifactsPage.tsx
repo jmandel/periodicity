@@ -1,13 +1,12 @@
 import React from 'react';
 import { Tag } from '../ds/Tag.jsx';
 import type { ResourceRow } from '../core/db';
-import { profileGroupLabel } from './profileGroups';
 
-const GROUPS: { title: string; types: string[]; accent: string }[] = [
+const GROUPS: { title: string; types: string[]; accent: string; examples?: boolean }[] = [
   { title: 'Profiles', types: ['StructureDefinition'], accent: 'var(--menstrual)' },
   { title: 'Value sets', types: ['ValueSet'], accent: 'var(--follicular)' },
   { title: 'Code systems', types: ['CodeSystem'], accent: 'var(--luteal)' },
-  { title: 'Examples', types: ['Bundle'], accent: 'var(--ovulatory)' },
+  { title: 'Examples', types: [], accent: 'var(--ovulatory)', examples: true },
 ];
 
 const shortOf = (d?: string) => {
@@ -16,7 +15,15 @@ const shortOf = (d?: string) => {
   return s.length > 110 ? s.slice(0, 110) + '…' : s;
 };
 
-export function ArtifactsPage({ resources, page }: { resources: ResourceRow[]; page: (r: ResourceRow) => string }) {
+export function ArtifactsPage({
+  resources, page, isExample = () => false,
+  profileGroupLabel = () => null,
+}: {
+  resources: ResourceRow[];
+  page: (r: ResourceRow) => string;
+  isExample?: (r: ResourceRow) => boolean;
+  profileGroupLabel?: (id: string) => string | null;
+}) {
   const detail = (r: ResourceRow) => (
     <div className="art-detail">
       {r.Description || <em>No description.</em>}
@@ -37,7 +44,7 @@ export function ArtifactsPage({ resources, page }: { resources: ResourceRow[]; p
       </section>
 
       {GROUPS.map((g) => {
-        const rows = resources.filter((r) => g.types.includes(r.Type));
+        const rows = resources.filter((r) => g.examples ? isExample(r) : g.types.includes(r.Type));
         if (!rows.length) return null;
         return (
           <section key={g.title} id={g.title.toLowerCase().replace(/\s+/g, '-')} style={{ marginTop: 30 }}>

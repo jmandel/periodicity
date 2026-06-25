@@ -20,6 +20,11 @@ parameters:
   apply-jurisdiction: false
   show-inherited-invariants: false
   no-narrative:
+    - Bundle/*
+    - Observation/*
+    - Patient/*
+    - Device/*
+    - Procedure/*
     - Binary/*
 menu:
   Home: index.html
@@ -50,7 +55,7 @@ menu:
     Artifacts: artifacts.html
     IG details: ig-details.html
 resources:
-  StructureDefinition/menstrual-bleeding-fact:
+  StructureDefinition/menstrual-bleeding:
     extension:
       - url: http://hl7.org/fhir/tools/StructureDefinition/resource-sort
         valueInteger: 10
@@ -58,19 +63,19 @@ resources:
     extension:
       - url: http://hl7.org/fhir/tools/StructureDefinition/resource-sort
         valueInteger: 60
-  StructureDefinition/menstrual-flow-fact:
+  StructureDefinition/menstrual-flow:
     extension:
       - url: http://hl7.org/fhir/tools/StructureDefinition/resource-sort
         valueInteger: 20
-  StructureDefinition/symptom-fact:
+  StructureDefinition/symptom:
     extension:
       - url: http://hl7.org/fhir/tools/StructureDefinition/resource-sort
         valueInteger: 30
-  StructureDefinition/numeric-pain-severity-fact:
+  StructureDefinition/numeric-pain-severity:
     extension:
       - url: http://hl7.org/fhir/tools/StructureDefinition/resource-sort
         valueInteger: 40
-  StructureDefinition/basal-body-temperature-fact:
+  StructureDefinition/basal-body-temperature:
     extension:
       - url: http://hl7.org/fhir/tools/StructureDefinition/resource-sort
         valueInteger: 50
@@ -97,4 +102,24 @@ resources:
   Bundle/period-tracking-longitudinal-example:
     name: Longitudinal Period Tracking Export
     description: A synthetic ~seven-cycle copper-IUD worked example built from the Layer 0 boolean bleeding core plus Layer 1 structured facts; this is the Bundle wrapped by the example SMART Health Link and rendered by the clinician viewer.
-    exampleBoolean: true
+    profile: https://cycle.fhir.me/StructureDefinition/period-tracking-bundle
+  Observation/menstrual-bleeding-example:
+    name: Menstrual Bleeding Example
+    description: A standalone Layer 0 boolean bleeding fact from the longitudinal example.
+    profile: https://cycle.fhir.me/StructureDefinition/menstrual-bleeding
+  Observation/menstrual-flow-example:
+    name: Menstrual Flow Example
+    description: A standalone Layer 1 source flow category fact from the longitudinal example.
+    profile: https://cycle.fhir.me/StructureDefinition/menstrual-flow
+  Observation/symptom-example:
+    name: Symptom Example
+    description: A standalone Layer 1 symptom fact from the longitudinal example.
+    profile: https://cycle.fhir.me/StructureDefinition/symptom
+  Observation/numeric-pain-severity-example:
+    name: Numeric Pain Severity Example
+    description: A standalone Layer 1 0-10 pain score fact from the longitudinal example.
+    profile: https://cycle.fhir.me/StructureDefinition/numeric-pain-severity
+  Observation/basal-body-temperature-example:
+    name: Basal Body Temperature Example
+    description: A standalone Layer 1 basal body temperature fact from the longitudinal example.
+    profile: https://cycle.fhir.me/StructureDefinition/basal-body-temperature

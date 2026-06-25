@@ -16,7 +16,6 @@ import { ArtifactsPage } from './fhir/ArtifactsPage';
 import { ValueSetPage } from './fhir/ValueSetPage';
 import { CodeSystemPage } from './fhir/CodeSystemPage';
 import { ExamplePage } from './fhir/ExamplePage';
-import { PROFILE_GROUPS, profileGroupLabel } from './fhir/profileGroups';
 import type { ResolveType } from './fhir/ElementTable';
 import { renderLiquid } from './core/liquid';
 import { includes } from './project/includes';
@@ -64,11 +63,32 @@ const byUrl = new Map<string, string>();
 for (const r of all) if (r.Url) byUrl.set(r.Url, page(r));
 const igResource = db.ig();
 const RESOURCE_SORT = 'http://hl7.org/fhir/tools/StructureDefinition/resource-sort';
+const EXAMPLE_PROFILE_EXTENSION = 'http://hl7.org/fhir/5.0/StructureDefinition/extension-ImplementationGuide.definition.resource.profile';
+const CANONICAL_RESOURCE_TYPES = new Set(['StructureDefinition', 'ValueSet', 'CodeSystem', 'ImplementationGuide']);
 const sortRanks = new Map<string, number>();
+const exampleRefs = new Set<string>();
+const exampleProfilesByReference = new Map<string, string[]>();
 for (const r of igResource.definition?.resource || []) {
   const ref = r.reference?.reference;
   const sort = (r.extension || []).find((e: any) => e.url === RESOURCE_SORT)?.valueInteger;
   if (ref && typeof sort === 'number') sortRanks.set(ref, sort);
+  if (!ref) continue;
+  const profiles = new Set<string>();
+  if (r.exampleCanonical) profiles.add(r.exampleCanonical);
+  if (Array.isArray(r.profile)) for (const p of r.profile) profiles.add(p);
+  for (const ext of r.extension || []) {
+    if (ext.url !== EXAMPLE_PROFILE_EXTENSION) continue;
+    if (Array.isArray(ext.valueCanonical)) for (const p of ext.valueCanonical) profiles.add(p);
+    else if (ext.valueCanonical) profiles.add(ext.valueCanonical);
+  }
+  if (r.exampleBoolean || r.exampleCanonical || profiles.size) exampleRefs.add(ref);
+  if (profiles.size) exampleProfilesByReference.set(ref, [...profiles]);
+}
+function resourceReference(r: db.ResourceRow): string {
+  return `${r.Type}/${r.Id}`;
+}
+function isExampleRow(r: db.ResourceRow): boolean {
+  return !CANONICAL_RESOURCE_TYPES.has(r.Type) && exampleRefs.has(resourceReference(r));
 }
 function artifactRank(r: db.ResourceRow): number {
   return sortRanks.get(`${r.Type}/${r.Id}`) ?? 100000;
@@ -80,7 +100,14 @@ function byArtifactOrder(a: db.ResourceRow, b: db.ResourceRow): number {
 function artifactResources(type?: string): db.ResourceRow[] {
   return all.filter((r) => !type || r.Type === type).sort(byArtifactOrder);
 }
+function exampleResources(): db.ResourceRow[] {
+  return artifactResources().filter(isExampleRow);
+}
 const structureDefinitions = artifactResources('StructureDefinition');
+const configuredProfileGroups = project.profileGroups || [];
+function profileGroupLabel(id: string): string | null {
+  return configuredProfileGroups.find((g) => g.ids.includes(id))?.label || null;
+}
 
 // nav-active: page slug -> top menu label
 const navMap: Record<string, string> = { index: 'Home', artifacts: 'Artifacts' };
@@ -139,30 +166,22 @@ function profileExamples(profileUrl: string): ProfileExampleUse[] {
   if (!profileUrl) return [];
   const accepted = profileAndDerivedUrls(profileUrl);
   const examples: ProfileExampleUse[] = [];
-  for (const r of db.resources('Bundle')) {
-    const bundle = db.parse(r);
-    let count = 0;
-    let direct = false;
-    const resourceTypes = new Set<string>();
-    const visit = (resource: any) => {
-      const profiles: string[] = resource?.meta?.profile || [];
-      const matched = profiles.some((p) => accepted.has(p));
-      if (!matched) return;
-      count++;
-      if (profiles.includes(profileUrl)) direct = true;
-      if (resource.resourceType) resourceTypes.add(resource.resourceType);
-    };
-    visit(bundle);
-    for (const entry of bundle.entry || []) visit(entry.resource);
-    if (count > 0) {
-      examples.push({
-        title: r.Title || r.Name || r.Id,
-        href: page(r),
-        count,
-        direct,
-        resourceTypes: [...resourceTypes].sort(),
-      });
-    }
+  for (const r of exampleResources()) {
+    const profiles = exampleProfilesByReference.get(resourceReference(r)) || [];
+    if (!profiles.some((p) => accepted.has(p))) continue;
+    const data = db.parse(r);
+    const code = JSON.stringify(data, null, 2);
+    const direct = profiles.includes(profileUrl);
+    const inlineable = direct && r.Type !== 'Bundle' && code.length <= 16000;
+    examples.push({
+      title: r.Title || r.Name || r.Id,
+      href: page(r),
+      jsonHref: `${r.Type}-${r.Id}.json`,
+      count: 1,
+      direct,
+      resourceTypes: [r.Type],
+      ...(inlineable ? { preview: { filename: `${r.Type}-${r.Id}.json`, code } } : {}),
+    });
   }
   return examples;
 }
@@ -175,7 +194,7 @@ function ArtifactSidebar({ current }: { current: string }) {
     <>
       <div className="side-group">
         <div className="side-title">Profiles</div>
-        {PROFILE_GROUPS.map((group) => {
+        {configuredProfileGroups.map((group) => {
           const rows = sds.filter((r) => profileGroupLabel(r.Id) === group.label);
           if (!rows.length) return null;
           return (
@@ -216,9 +235,9 @@ function PagesSidebar({ current }: { current: string }) {
 }
 
 const emitted = new Set<string>();
-function emit(file: string, node: React.ReactNode, opts: { title: string; crumbs?: Crumb[]; toc?: TocItem[]; navActive?: string; sidebar?: React.ReactNode; machineBase?: string }) {
+function emit(file: string, node: React.ReactNode, opts: { title: string; crumbs?: Crumb[]; toc?: TocItem[]; navActive?: string; sidebar?: React.ReactNode; machineBase?: string; aiSource?: string }) {
   const html = '<!doctype html>\n' + renderToStaticMarkup(
-    <Layout meta={meta} title={opts.title} crumbs={opts.crumbs} toc={opts.toc} navActive={opts.navActive} sidebar={opts.sidebar} machineBase={opts.machineBase} ig={igResource}>
+    <Layout meta={meta} title={opts.title} crumbs={opts.crumbs} toc={opts.toc} navActive={opts.navActive} sidebar={opts.sidebar} machineBase={opts.machineBase} aiSource={opts.aiSource} ig={igResource}>
       {node}
     </Layout>,
   );
@@ -240,7 +259,12 @@ for (const p of db.pages()) {
   const file = `${p.Slug}.html`;
   let liquidOut: string;
   try {
-    liquidOut = renderLiquid(p.Body, { includes, ig: igResource, assetInclude: db.textAsset });
+    liquidOut = renderLiquid(p.Body, {
+      includes,
+      ig: igResource,
+      assetInclude: db.textAsset,
+      sql: (query) => db.db.query(query).all() as Record<string, any>[],
+    });
   } catch (e: any) {
     // A broken include/directive must NOT silently publish. Fail the build unless
     // explicitly running in lenient dev mode.
@@ -256,6 +280,7 @@ for (const p of db.pages()) {
     navActive: navMap[p.Slug],
     toc: toc.filter((t) => t.level === 2).map((t) => ({ id: t.id, label: t.label })),
     crumbs: p.Slug === 'index' ? undefined : [{ label: 'Home', href: 'index.html' }, { label: p.Title }],
+    aiSource: `${p.Slug}.md`,
     // No sidebar on narrative pages: a flat page list would just duplicate the top
     // menu. The top nav (with its submenus) is the page nav; here we use content + TOC.
   });
@@ -263,7 +288,7 @@ for (const p of db.pages()) {
 }
 
 // ---- artifacts index ----
-emit('artifacts.html', <ArtifactsPage resources={artifactResources()} page={page} />, {
+emit('artifacts.html', <ArtifactsPage resources={artifactResources()} page={page} isExample={isExampleRow} profileGroupLabel={profileGroupLabel} />, {
   title: 'Artifacts', navActive: artifactsNav,
   toc: [{ id: 'profiles', label: 'Profiles' }, { id: 'value-sets', label: 'Value sets' }, { id: 'code-systems', label: 'Code systems' }, { id: 'examples', label: 'Examples' }],
   crumbs: [{ label: 'Home', href: 'index.html' }, { label: 'Artifacts' }],
@@ -277,14 +302,14 @@ for (const r of artifactResources('StructureDefinition')) {
   const rootType = r.sdType || data.type;
   const requirements = profileRootRequirements(data, rootType);
   const examples = profileExamples(r.Url || '');
+  const inlineExample = examples.some((e) => e.direct && e.preview);
   emit(page(r), <ProfilePage r={r} data={data} resolve={resolve} requirements={requirements} examples={examples} />, {
     title: r.Title || r.Name || r.Id,
     navActive: artifactsNav,
     crumbs: [{ label: 'Artifacts', href: 'artifacts.html' }, { label: 'Profiles', href: 'artifacts.html#profiles' }, { label: r.Title || r.Id }],
     toc: [
       { id: 'overview', label: 'Overview' },
-      { id: 'glance', label: 'At a glance' },
-      ...(requirements.length ? [{ id: 'requirements', label: 'Profile requirements' }] : []),
+      ...(inlineExample ? [{ id: 'example', label: 'Example' }] : []),
       ...(examples.length ? [{ id: 'examples', label: 'Examples' }] : []),
       { id: 'elements', label: 'Formal definition' },
     ],
@@ -318,8 +343,9 @@ for (const r of artifactResources('CodeSystem')) {
   });
 }
 
-// ---- examples (Bundles) ----
-for (const r of artifactResources('Bundle')) {
+// ---- examples ----
+let nExamples = 0;
+for (const r of exampleResources()) {
   const data = db.parse(r);
   emit(page(r), <ExamplePage r={r} data={data} />, {
     title: r.Title || r.Name || r.Id, navActive: artifactsNav,
@@ -328,12 +354,30 @@ for (const r of artifactResources('Bundle')) {
     sidebar: <ArtifactSidebar current={page(r)} />,
     machineBase: writeArtifactJson(r),
   });
+  nExamples++;
 }
 
 // ---- llms.txt: machine entry point (turns "crawl and guess" into "fetch the manifest") ----
 {
   const ig = db.ig();
-  const lines: string[] = [`# ${meta.igName} - ${ig.title || meta.igName}`, `> ${(ig.description || '').replace(/\s+/g, ' ').trim()}`, ''];
+  const siteBase = (() => {
+    try {
+      const u = new URL(ig.url || `https://${project.cname}/`);
+      return `${u.origin}/`;
+    } catch {
+      return `https://${project.cname}/`;
+    }
+  })();
+  const lines: string[] = [
+    `# ${meta.igName} - ${ig.title || meta.igName}`,
+    `> ${(ig.description || '').replace(/\s+/g, ' ').trim()}`,
+    '',
+    '## Resolution context',
+    `- Canonical IG URL: ${ig.url || ''}`,
+    `- Published site base URL: ${siteBase}`,
+    `- Resolve relative links in this file against: ${siteBase}`,
+    '',
+  ];
   // Narrative pages: mirror the site menu, linking to the liquid-resolved .md source.
   const pageSlugs = new Set(db.pages().filter((p) => p.Body).map((p) => p.Slug));
   const mdLink = (href: string) => {
@@ -359,7 +403,11 @@ for (const r of artifactResources('Bundle')) {
   group('Profiles', 'StructureDefinition');
   group('Value sets', 'ValueSet');
   group('Code systems', 'CodeSystem');
-  group('Examples', 'Bundle');
+  const examples = exampleResources();
+  if (examples.length) {
+    lines.push('', '## Examples');
+    for (const r of examples) lines.push(`- [${r.Title || r.Name || r.Id}](${r.Type}-${r.Id}.html): ${(r.Description || '').replace(/\s+/g, ' ').split(/(?<=[.?!])\s/)[0]} | JSON: ${r.Type}-${r.Id}.json`);
+  }
   writeFileSync(`${OUT}/llms.txt`, lines.join('\n') + '\n');
 }
 
@@ -381,7 +429,7 @@ const bundleKb = Math.round((bundle.outputs.find((o) => o.path.endsWith('app.js'
 console.log(`✓ client bundle → assets/app.js (${bundleKb} KB)`);
 
 // ---- link checker: fail on any dangling internal href ----
-console.log(`Rendered ${nPages} narrative + artifacts + ${nProfiles} profiles + VS/CS/examples → ${OUT}/`);
+console.log(`Rendered ${nPages} narrative + artifacts + ${nProfiles} profiles + VS/CS + ${nExamples} examples → ${OUT}/`);
 const broken = checkInternalLinks({ outDir: OUT, emitted, files: emitted, isExternalLink });
 if (broken.length) {
   console.error(`\n✗ ${broken.length} broken internal links:`);

@@ -5,7 +5,6 @@
  * Adding or removing an include here does not touch the generic renderer
  * (core/liquid.ts). Another IG would replace this file.
  */
-import * as db from '../core/db';
 import type { IncludeRegistry } from '../core/liquid';
 
 const esc = (s: string) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');

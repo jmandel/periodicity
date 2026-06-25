@@ -91,6 +91,28 @@ function chrome() {
     });
   });
 
+  // Copy the liquid-resolved markdown source for this page so agents get the
+  // same content as the rendered HTML, with relative links intact.
+  document.querySelectorAll<HTMLAnchorElement>('[data-copy-ai-source]').forEach((link) => {
+    link.addEventListener('click', async (e) => {
+      if (!navigator.clipboard) return;
+      e.preventDefault();
+      const href = link.getAttribute('href') || link.getAttribute('data-copy-ai-source') || '';
+      const markCopied = () => {
+        link.setAttribute('data-copied', 'true');
+        window.setTimeout(() => link.removeAttribute('data-copied'), 1200);
+      };
+      try {
+        const res = await fetch(href, { credentials: 'same-origin' });
+        if (!res.ok) throw new Error(String(res.status));
+        await navigator.clipboard.writeText(await res.text());
+        markCopied();
+      } catch {
+        window.location.href = href;
+      }
+    });
+  });
+
   // Mobile nav drawer
   const menuBtn = document.querySelector('[data-toggle="mobile-nav"]');
   const nav = document.querySelector('.cycle-nav');

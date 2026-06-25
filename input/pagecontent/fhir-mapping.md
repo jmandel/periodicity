@@ -17,7 +17,7 @@ The authoritative model is the IG. Open these alongside this file:
 Bundle (type=collection; one-person scope)
 ├── Patient            optional
 ├── Device             optional source application (name + version)
-├── Observation        menstrual-bleeding-fact ≥1
+├── Observation        menstrual-bleeding ≥1
 ├── Observation        other concrete fact profiles as available
 └── Binary             optional native-JSON snapshot (see "Complete export")
 ```
@@ -114,7 +114,6 @@ Pain associations the viewer understands, such as dyspareunia, are expressed as 
 - Code: LOINC `8310-5`
 - Value: `valueQuantity` using UCUM `Cel`
 - Category: `vital-signs` because FHIR requires vital-sign category behavior for vital-sign codes.
-- Method: add SNOMED CT `281660007` when the source establishes basal measurement.
 
 Intermenstrual or postcoital bleeding can be inferred by a receiver from bleeding timing and optional source context. They are not separate required core codes.
 

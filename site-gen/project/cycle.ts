@@ -43,4 +43,14 @@ export const project = {
       { label: 'Worked example', href: 'examples.html' },
     ],
   },
+
+  // ---- artifact grouping: project-specific editorial structure for generated
+  //      artifact lists and sidebars. The FHIR renderer only receives the
+  //      resolved grouping; it does not know cycle-specific profile names. ----
+  profileGroups: [
+    { label: 'Base', ids: ['period-tracking-fact'] },
+    { label: 'Layer 0 core', ids: ['menstrual-bleeding'] },
+    { label: 'Layer 1 facts', ids: ['menstrual-flow', 'symptom', 'numeric-pain-severity', 'basal-body-temperature'] },
+    { label: 'Bundle', ids: ['period-tracking-bundle'] },
+  ],
 };

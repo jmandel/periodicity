@@ -1,7 +1,9 @@
 import React from 'react';
 import { Badge } from '../ds/Badge.jsx';
+import { CodeBlock } from '../ds/CodeBlock.jsx';
 import { PageHeader, StatusBadge, Tag, SectionHeading } from '../chrome/Parts';
 import { CopyValue } from '../ds/CopyValue.jsx';
+import { Icon } from '../ds/Icon.jsx';
 import { ElementTable, elementViews, ResolveType } from './ElementTable';
 import { Tabs } from '../chrome/Tabs';
 import type { ResourceRow } from '../core/db';
@@ -16,136 +18,55 @@ export interface ProfileRequirement {
 export interface ProfileExampleUse {
   title: string;
   href: string;
+  jsonHref?: string;
   count: number;
   direct: boolean;
   resourceTypes: string[];
+  preview?: {
+    filename: string;
+    code: string;
+  };
 }
 
-function localName(path = ''): string {
-  const parts = path.split('.');
-  return parts[parts.length - 1] || path;
-}
-
-function codeSystemLabel(system = ''): string {
-  if (system === 'https://cycle.fhir.me/CodeSystem/cycle') return 'cycle';
-  if (system === 'http://loinc.org') return 'LOINC';
-  if (system === 'http://snomed.info/sct') return 'SNOMED CT';
-  if (system === 'http://terminology.hl7.org/CodeSystem/observation-category') return 'observation-category';
-  return system.split('/').pop() || system;
-}
-
-function conceptLabel(v: any): string {
-  const coding = v?.coding?.[0];
-  if (!coding) return v?.text || JSON.stringify(v);
-  return `${codeSystemLabel(coding.system)}#${coding.code}`;
-}
-
-function fixedSummary(e: any): string | null {
-  for (const key of Object.keys(e || {})) {
-    if (!key.startsWith('fixed') && !key.startsWith('pattern')) continue;
-    const value = e[key];
-    if (value == null) continue;
-    const kind = key.startsWith('fixed') ? 'fixed' : 'pattern';
-    const rendered = typeof value === 'object'
-      ? conceptLabel(value)
-      : String(value);
-    return `${kind}: ${rendered}`;
-  }
-  return null;
-}
-
-function typeLabel(t: any): string {
-  const targets = t.targetProfile || (t.code === 'Reference' || t.code === 'canonical' ? [] : t.profile);
-  if (targets?.length) {
-    const names = targets.map((tp: string) => tp.split('/').pop() || tp).join(' | ');
-    return `${t.code}(${names})`;
-  }
-  return t.code;
-}
-
-function bindingLabel(e: any): string | null {
-  if (!e.binding?.valueSet) return null;
-  if (!e.binding.valueSet.startsWith('https://cycle.fhir.me/')) return null;
-  const name = e.binding.valueSet.split('/').pop() || e.binding.valueSet;
-  return `${e.binding.strength || 'binding'}: ${name}`;
-}
-
-function firstItems(items: { label: string; value: React.ReactNode }[], limit = 6) {
-  const visible = items.slice(0, limit);
-  if (items.length > limit) visible.push({ label: 'More', value: `${items.length - limit} additional constraints in Formal definition` });
-  return visible;
-}
-
-function ProfileGlance({ data, rootType }: { data: any; rootType: string }) {
-  const views = elementViews(data.snapshot?.element, data.differential?.element, rootType);
-  const keyElements = views.key.filter((e: any) => e.path && e.path !== rootType);
-  const topLevel = (e: any) => e.path.split('.').length === 2;
-  const notable = keyElements.filter(topLevel);
-
-  const required = firstItems(notable
-    .filter((e: any) => (e.min ?? 0) > 0)
-    .map((e: any) => ({ label: localName(e.path), value: `${e.min}..${e.max ?? '*'}` })));
-
-  const fixed = firstItems(notable
-    .map((e: any) => ({ e, value: fixedSummary(e) }))
-    .filter((x: any) => x.value)
-    .map((x: any) => ({ label: localName(x.e.path), value: x.value })));
-
-  const types = firstItems(notable
-    .filter((e: any) => e.type?.length && (e.path.includes('[x]') || ['subject', 'device'].includes(localName(e.path))))
-    .map((e: any) => ({ label: localName(e.path), value: e.type.map(typeLabel).join(' | ') })));
-
-  const bindings = firstItems(notable
-    .map((e: any) => ({ e, value: bindingLabel(e) }))
-    .filter((x: any) => x.value)
-    .map((x: any) => ({ label: localName(x.e.path), value: x.value })));
-
-  const groups = [
-    { title: 'Required', items: required },
-    { title: 'Fixed values', items: fixed },
-    { title: 'Allowed types', items: types },
-    { title: 'Bindings', items: bindings },
-  ].filter((g) => g.items.length);
-
-  if (!groups.length) return null;
+function FormalConstraints({ requirements }: { requirements: ProfileRequirement[] }) {
+  if (!requirements.length) return null;
   return (
-    <section className="art-section profile-glance" id="glance">
-      <SectionHeading id="glance">At a glance</SectionHeading>
-      <div className="glance-grid">
-        {groups.map((group) => (
-          <div className="glance-card" key={group.title}>
-            <h3>{group.title}</h3>
-            <dl>
-              {group.items.map((item) => (
-                <React.Fragment key={`${item.label}-${String(item.value)}`}>
-                  <dt>{item.label}</dt>
-                  <dd>{item.value}</dd>
-                </React.Fragment>
-              ))}
-            </dl>
-          </div>
+    <div className="formal-constraints">
+      <h3>Additional constraints</h3>
+      <ul>
+        {requirements.map((c) => (
+          <li key={c.key}>
+            {c.human || c.key}
+            {c.severity && <span className="constraint-severity">{c.severity}</span>}
+          </li>
         ))}
-      </div>
-    </section>
+      </ul>
+    </div>
   );
 }
 
-function ProfileRequirements({ requirements }: { requirements: ProfileRequirement[] }) {
-  if (!requirements.length) return null;
+function ProfileInlineExample({ examples }: { examples: ProfileExampleUse[] }) {
+  const example = examples.find((e) => e.direct && e.preview);
+  if (!example?.preview) return null;
   return (
-    <section className="art-section" id="requirements">
-      <SectionHeading id="requirements">Profile requirements</SectionHeading>
-      <div className="constraint-list">
-        {requirements.map((c) => (
-          <div className="constraint-card" key={c.key}>
-            <div className="constraint-head">
-              <code>{c.key}</code>
-              {c.severity && <Badge tone="menstrual" variant="soft">{c.severity}</Badge>}
+    <section className="art-section profile-inline-example" id="example">
+      <SectionHeading id="example">Example</SectionHeading>
+      <p className="section-lead">
+        A minimal standalone resource showing this profile in use. It is generated from the same worked export as the sample SMART Health Link.
+      </p>
+      <CodeBlock lang="json" filename={example.preview.filename} code={example.preview.code} copy />
+      <div className="split-action">
+        <a className="split-action-main" href={example.href}>Open example page</a>
+        {example.jsonHref && (
+          <div className="split-action-menu">
+            <button type="button" className="split-action-toggle" aria-label="More example actions">
+              <Icon name="chevronDown" size={16} strokeWidth={2.4} />
+            </button>
+            <div className="split-action-options">
+              <a href={example.jsonHref}>Open raw JSON</a>
             </div>
-            {c.human && <p>{c.human}</p>}
-            {c.expression && <CopyValue value={c.expression} label={`${c.key} FHIRPath expression`} />}
           </div>
-        ))}
+        )}
       </div>
     </section>
   );
@@ -198,8 +119,7 @@ export function ProfilePage({
           ['Base', <Tag tone="luteal" href={resolve(rootType!, r.base)}>{baseName}</Tag>],
         ]}
       />
-      <ProfileGlance data={data} rootType={rootType} />
-      <ProfileRequirements requirements={requirements} />
+      <ProfileInlineExample examples={examples} />
       <ProfileExamples examples={examples} />
 
       <section className="art-section" id="elements">
@@ -217,8 +137,9 @@ export function ProfilePage({
           );
         })()}
         <p className="flag-legend">
-          Flags — <strong>S</strong> Must Support · <strong>?!</strong> Modifier · <strong>Σ</strong> In summary. Required elements (min&nbsp;≥&nbsp;1) shown in coral. <strong>Key elements</strong> = what this profile constrains; <strong>Snapshot</strong> = the full resolved structure.
+          Required elements (min&nbsp;≥&nbsp;1) are shown in coral. <strong>Key elements</strong> = what this profile constrains; <strong>Snapshot</strong> = the full resolved structure.
         </p>
+        <FormalConstraints requirements={requirements} />
       </section>
     </>
   );

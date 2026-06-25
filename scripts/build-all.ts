@@ -5,7 +5,7 @@
  *   bun scripts/build-all.ts   (or: bun run build)
  *
  * Steps:
- *   1. gen-example  -> dist/examples/Bundle-...longitudinal-example.json
+ *   1. gen-example  -> dist/examples/Bundle-...longitudinal-example.json + profile examples
  *   2. build-viewer -> dist/view*.html + dist/view*-assets/{app.js, index.html}
  *   3. gen-shl      -> dist/view-assets/{example.jwe, shlink.txt, ...}
  */
@@ -31,7 +31,7 @@ async function mirrorDemoAssets(srcDir: string, destDirs: string[]) {
   }
 }
 
-await step("generate example bundle", "gen-example.ts");
+await step("generate examples", "gen-example.ts");
 for (const variant of viewerVariants) {
   await step(`bundle ${variant.label} SPA`, "build-viewer.ts", viewerBuildEnv(variant, distOut));
 }

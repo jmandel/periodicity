@@ -5,7 +5,7 @@ dist/
 temp/
 template/
 input-cache/
-input/resources/Bundle-period-tracking-longitudinal-example.json
+input/resources/*.json
 input/includes/sample-viewer-links.md
 
 # Generated examples/viewer artifacts are build products. GitHub Actions copies

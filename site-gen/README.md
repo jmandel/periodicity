@@ -55,6 +55,9 @@ fails loudly rather than silently rendering a stale one.
   a computed registry entry (`project/includes.ts`) or to a same-named text asset
   that `ingest.ts` already copied into the DB from trusted project/Publisher
   outputs. An **unknown include fails the build**.
+- **Liquid SQL tags are read-only**. They only accept `SELECT` / `WITH`
+  statements over the local generated `site.db`, reject semicolons and mutation
+  keywords, and exist only for trusted first-party markdown authoring.
 - **Asset names are validated** before ingest/write; absolute paths, `..`, and
   empty path segments are rejected.
 - A **Liquid/include error fails the build** (set `SITE_GEN_LENIENT=1` only for

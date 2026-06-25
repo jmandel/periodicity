@@ -18,6 +18,7 @@ data we already have in `package.db`.
 | Construct | Site(s) | Category |
 | --- | --- | --- |
 | `{% include dependency-table.xhtml %}` etc. (×4) | `ig-details.md` | **generated artifact** include |
+| `{% sql select … %}` | `specification.md` | read-only table/query over `site.db` |
 | `{% capture x %}{% include model.svg %}{% endcapture %}` + `{{ x \| remove_first: … }}` | `specification.md` | capture + include + filter |
 | `{% assign source_repo = site.data.fhir.ig.contact[0].telecom[0] %}` | `index.md` | assign from data |
 | `{{ source_repo \| replace: 'https://','' }}` | `index.md` | output + filter |
@@ -51,6 +52,9 @@ HTML tables/SVG survive [2] untouched.
 | `{% assign v = expr %}` | ✅ | RHS = path lookup, string/number literal, or filtered expr |
 | `{% capture v %}…{% endcapture %}` | ✅ | captures rendered inner block into `v` |
 | `{% include NAME %}` | ✅ **remapped** | NAME resolves against our **shortcode registry** (§5), *not* the filesystem |
+| `{% sql SELECT … %}` | ✅ | documented IG Guidance-style read-only table/query over `site.db` |
+| `{% sql { "query": "…", "columns": […] } %}` | ✅ partial | documented IG Guidance-style JSON-control form; basic column selection/link/coding rendering |
+| `{% sqlToData name SELECT … %}` | ✅ | stores result rows in the Liquid context as `name` |
 | `{% comment %}…{% endcomment %}` | ✅ | dropped |
 | `{% if %}` / `{% unless %}` / `{% else %}` | ⚠️ minimal | truthiness + `==`/`!=` only; no `and/or` chains initially |
 | `{% for %}` | ❌ (phase 2) | not used by our content; add only if needed |
@@ -116,6 +120,46 @@ Rules:
 - Generators are pure: `(args, ctx) → string`; they may pull from `package.db`.
 - File-like includes are data, not registry code: referenced Publisher include
   outputs are ingested into `Assets` and then inlined from the DB.
+
+---
+
+## 5.1 · SQL blocks
+
+Trusted first-party markdown can query the augmented site DB directly using the
+syntax documented in the IG Guidance IG:
+
+```liquid
+{% sql
+select Code, Display, Definition as Meaning
+from Concepts
+order by Key
+%}
+```
+
+The JSON-control form is also supported for simple column control:
+
+```liquid
+{% sql {
+  "query": "select Name, Description, Web from Resources",
+  "columns": [
+    { "source": "Name", "type": "link", "target": "Web" },
+    { "source": "Description", "type": "text" }
+  ]
+} %}
+```
+
+`sqlToData` is available for the documented "query first, use later in Liquid"
+pattern:
+
+```liquid
+{% sqlToData itemQuery SELECT count(*) as n from Metadata %}
+Number of Metadata Items: {{ itemQuery[0].n }}
+```
+
+The SQL surface is deliberately read-only: the query must begin with `select` or
+`with`, may not contain semicolons, and rejects mutation / attachment keywords.
+This is an authoring convenience over trusted `site.db`; it is not an end-user
+query feature.
 
 ---
 

@@ -13,7 +13,7 @@ This draft defines a deliberately small FHIR R4 exchange model for **patient-gen
 
 1. **Model** — an app maps the data it actually stores to the Bundle profile and concrete fact profiles below. See the [Specification](specification.html) and the [FHIR mapping reference](fhir-mapping.html).
 2. **Share** — the Bundle is encrypted into a [SMART Health Link](smart-health-links.html) (compact JWE; the file host never sees the key or plaintext).
-3. **View** — a receiving app decrypts the link and renders a cycle summary, **computing all analytics from the granular facts** (no precomputed summaries travel in the Bundle). The site includes [reference clinician viewer variants](view.html) as compatible receivers.
+3. **View** — a receiving app decrypts the link locally and renders from the granular facts; no precomputed summaries travel in the Bundle.
 
 ### Try it now
 
@@ -26,12 +26,12 @@ Inspect the data behind them: the [longitudinal example Bundle](Bundle-period-tr
 ## Profiles
 
 1. **[Period Tracking MVP Bundle](StructureDefinition-period-tracking-bundle.html)** — a FHIR `collection` Bundle scoped to one person's period-tracking data. It requires at least one bleeding core fact; Patient and Device resources are optional.
-2. **[Period Tracking Fact Observation](StructureDefinition-period-tracking-fact.html)** — the abstract base profile for one independently meaningful granular fact.
-3. **[Menstrual Bleeding Fact Observation](StructureDefinition-menstrual-bleeding-fact.html)** — the required boolean core fact.
-4. **[Menstrual Flow Fact Observation](StructureDefinition-menstrual-flow-fact.html)** — optional ordinal flow intensity.
-5. **[Symptom Fact Observation](StructureDefinition-symptom-fact.html)** — optional symptom facts with the specific symptom in `valueCodeableConcept`.
-6. **[Numeric Pain Severity Fact Observation](StructureDefinition-numeric-pain-severity-fact.html)** — optional 0-10 pain score.
-7. **[Basal Body Temperature Fact Observation](StructureDefinition-basal-body-temperature-fact.html)** — optional timed or day-scoped basal body temperature.
+2. **[Period Tracking Fact](StructureDefinition-period-tracking-fact.html)** — the abstract base profile for one independently meaningful granular fact.
+3. **[Menstrual Bleeding](StructureDefinition-menstrual-bleeding.html)** — the required boolean core fact.
+4. **[Menstrual Flow](StructureDefinition-menstrual-flow.html)** — optional ordinal flow intensity.
+5. **[Symptom](StructureDefinition-symptom.html)** — optional symptom facts with the specific symptom in `valueCodeableConcept`.
+6. **[Numeric Pain Severity](StructureDefinition-numeric-pain-severity.html)** — optional 0-10 pain score.
+7. **[Basal Body Temperature](StructureDefinition-basal-body-temperature.html)** — optional timed or day-scoped basal body temperature.
 
 It defines one small [Menstrual Flow ValueSet](ValueSet-menstrual-flow.html), a non-binding [Common Period-Tracking Symptoms](ValueSet-common-tracker-symptoms.html) starter set, a small fact-category ValueSet, and a [project CodeSystem](CodeSystem-cycle.html) of exactly eight concepts. The universal Layer 0 core is `menstrual-bleeding` true/false at the source date or timestamp; standard LOINC, SNOMED CT, and UCUM are used for optional Layer 1 facts when the source meaning supports them.
 

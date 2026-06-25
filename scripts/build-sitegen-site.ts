@@ -20,6 +20,7 @@ const root = `${import.meta.dir}/..`;
 const OUT = `${root}/site-gen/out`;
 const SITE_DB = `${root}/temp/site-gen/site.db`;
 const SAMPLE_SHL_DIR = `${root}/temp/site-gen/sample-shl`;
+const exampleDir = `${root}/input/resources`;
 const exampleOut = `${root}/input/resources/Bundle-period-tracking-longitudinal-example.json`;
 const publisherJar = `${root}/input-cache/publisher.jar`;
 const viewerBase = Bun.env.VIEWER_BASE || `https://${project.cname}/view`;
@@ -59,7 +60,9 @@ async function walk(dir: string, base = dir): Promise<string[]> {
 // 1–3. FHIR inputs, SUSHI, integrity checks
 await requireTool('Graphviz dot', ['dot', '-V'], 'Install graphviz so PlantUML diagrams render.');
 await requireTool('zip', ['zip', '-v'], 'Install zip so the agent skill package can be built.');
-await step('generate build example Bundle', ['bun', 'scripts/gen-example.ts'], { EXAMPLE_OUT: exampleOut });
+await rm(exampleDir, { recursive: true, force: true });
+await mkdir(exampleDir, { recursive: true });
+await step('generate build examples', ['bun', 'scripts/gen-example.ts'], { EXAMPLE_OUT: exampleOut });
 await rm(SAMPLE_SHL_DIR, { recursive: true, force: true });
 await step('package sample SMART Health Link', ['bun', 'scripts/gen-shl.ts'], {
   BUNDLE_FILE: exampleOut, SHL_OUTDIR: SAMPLE_SHL_DIR, VIEWER_BASE: viewerBase,
@@ -70,6 +73,8 @@ await step('integrity checks', ['bun', 'scripts/check-mvp.ts'], { BUNDLE_FILE: e
 
 // 4–5. IG Publisher → output/package.db (validation + the DB we consume)
 if (!(await Bun.file(publisherJar).exists())) await step('download IG Publisher', ['./_updatePublisher.sh']);
+await rm(`${root}/output`, { recursive: true, force: true });
+await rm(`${root}/temp/pages`, { recursive: true, force: true });
 await step('run IG Publisher', ['./_genonce.sh']);
 
 await step('ingest package.db', ['bun', 'site-gen/ingest.ts'], { PKG_DB: `${root}/output/package.db`, SITE_DB });

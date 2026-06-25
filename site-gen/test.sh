@@ -14,7 +14,7 @@ echo "$BUILD" | grep -E "Rendered|bundle|link check"
 
 O="$PWD/site-gen/out"
 SHOTS="site-gen/.shots"; mkdir -p "$SHOTS"
-PAGES="${PAGES:-index.html artifacts.html StructureDefinition-menstrual-bleeding-fact.html ValueSet-menstrual-flow.html CodeSystem-cycle.html Bundle-period-tracking-longitudinal-example.html specification.html}"
+PAGES="${PAGES:-index.html artifacts.html StructureDefinition-menstrual-bleeding.html ValueSet-menstrual-flow.html CodeSystem-cycle.html Bundle-period-tracking-longitudinal-example.html specification.html}"
 NOISE='GPU|gpu_|vulkan|swiftshader|dawn|gcm|google_apis|D-Bus|signin|histogram|VizNull|sandbox|ImplementationParts|GL |Fontconfig|cfgmgr'
 fail=0
 

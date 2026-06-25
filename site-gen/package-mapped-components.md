@@ -169,4 +169,4 @@ All optional; page is complete without them.
 ## Prototype status
 Started porting primitives into `site-gen/ds/` (`Icon`, `Badge` done). Next: `db.ts`
 (`bun:sqlite` reader), `Layout`, and `ElementTable` + `ProfilePage` rendered from
-`menstrual-bleeding-fact` to prove the DB→SSR→static pipeline, then screenshot-verify.
+`menstrual-bleeding` to prove the DB→SSR→static pipeline, then screenshot-verify.

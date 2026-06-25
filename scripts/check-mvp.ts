@@ -17,27 +17,24 @@ const CYCLE = "https://cycle.fhir.me/CodeSystem/cycle";
 const LOINC = "http://loinc.org";
 const UCUM = "http://unitsofmeasure.org";
 const OBSCAT = "http://terminology.hl7.org/CodeSystem/observation-category";
-const BUNDLE_PROFILE = "https://cycle.fhir.me/StructureDefinition/period-tracking-bundle";
-const FACT_PROFILE = "https://cycle.fhir.me/StructureDefinition/period-tracking-fact";
-const FACT_PROFILES = {
-  bleeding: "https://cycle.fhir.me/StructureDefinition/menstrual-bleeding-fact",
-  flow: "https://cycle.fhir.me/StructureDefinition/menstrual-flow-fact",
-  symptom: "https://cycle.fhir.me/StructureDefinition/symptom-fact",
-  pain: "https://cycle.fhir.me/StructureDefinition/numeric-pain-severity-fact",
-  bbt: "https://cycle.fhir.me/StructureDefinition/basal-body-temperature-fact",
+const EXAMPLE_IDS = {
+  bleeding: "menstrual-bleeding-example",
+  flow: "menstrual-flow-example",
+  symptom: "symptom-example",
+  pain: "numeric-pain-severity-example",
+  bbt: "basal-body-temperature-example",
 };
-const ALL_FACT_PROFILES = new Set([FACT_PROFILE, ...Object.values(FACT_PROFILES)]);
 const EXPECTED_CODES = new Set(["menstrual-bleeding", "menstrual-flow", "symptom", "flow-none", "flow-spotting", "flow-light", "flow-moderate", "flow-heavy"]);
-const EXPECTED_PROFILES = new Set(["period-tracking-bundle", "period-tracking-fact", "menstrual-bleeding-fact", "menstrual-flow-fact", "symptom-fact", "numeric-pain-severity-fact", "basal-body-temperature-fact"]);
+const EXPECTED_PROFILES = new Set(["period-tracking-bundle", "period-tracking-fact", "menstrual-bleeding", "menstrual-flow", "symptom", "numeric-pain-severity", "basal-body-temperature"]);
 const FLOW_VALUES = new Set(["flow-none", "flow-spotting", "flow-light", "flow-moderate", "flow-heavy"]);
 const VALUE_KEYS = new Set(["valueQuantity", "valueCodeableConcept", "valueString", "valueBoolean"]);
 const RESOURCE_SORT = "http://hl7.org/fhir/tools/StructureDefinition/resource-sort";
 const EXPECTED_ARTIFACT_SORT = new Map([
-  ["StructureDefinition/menstrual-bleeding-fact", 10],
-  ["StructureDefinition/menstrual-flow-fact", 20],
-  ["StructureDefinition/symptom-fact", 30],
-  ["StructureDefinition/numeric-pain-severity-fact", 40],
-  ["StructureDefinition/basal-body-temperature-fact", 50],
+  ["StructureDefinition/menstrual-bleeding", 10],
+  ["StructureDefinition/menstrual-flow", 20],
+  ["StructureDefinition/symptom", 30],
+  ["StructureDefinition/numeric-pain-severity", 40],
+  ["StructureDefinition/basal-body-temperature", 50],
   ["StructureDefinition/period-tracking-bundle", 60],
   ["StructureDefinition/period-tracking-fact", 70],
   ["ValueSet/menstrual-flow", 10],
@@ -59,6 +56,15 @@ async function load(path: string) {
 
 function hasCoding(cc: any, system: string, code: string) {
   return (cc?.coding || []).some((c: any) => c.system === system && c.code === code);
+}
+
+function factKind(obs: any): keyof typeof EXAMPLE_IDS | null {
+  if (hasCoding(obs.code, CYCLE, "menstrual-bleeding")) return "bleeding";
+  if (hasCoding(obs.code, CYCLE, "menstrual-flow")) return "flow";
+  if (hasCoding(obs.code, CYCLE, "symptom")) return "symptom";
+  if (hasCoding(obs.code, LOINC, "72514-3")) return "pain";
+  if (hasCoding(obs.code, LOINC, "8310-5")) return "bbt";
+  return null;
 }
 
 function refTuple(ref?: string) {
@@ -116,7 +122,7 @@ async function main() {
     messages.push("Artifact sort metadata keeps the core profiles and terminology first.");
 
     const bundle = await load(BUNDLE_FILE);
-    assert((bundle.meta?.profile || []).includes(BUNDLE_PROFILE), "bundle missing profile");
+    assert(!(bundle.meta?.profile?.length), "example Bundle should not stamp meta.profile");
     assert(bundle.type === "collection", "bundle must be a collection");
     const entries = bundle.entry || [];
     const fullUrls = entries.map((e: any) => e.fullUrl);
@@ -140,47 +146,38 @@ async function main() {
 
     const facts: any[] = [];
     for (const obs of kinds.get("Observation") || []) {
-      const prof = new Set(obs.meta?.profile || []);
       assert(obs.status === "final", `${obs.id} status not final`);
+      assert(!(obs.meta?.profile?.length), `${obs.id} should not stamp meta.profile`);
       if (obs.category) assert(["survey", "vital-signs"].some((c) => hasCoding({ coding: obs.category?.[0]?.coding || [] }, OBSCAT, c)), `${obs.id} category not survey/vital-signs`);
       assert("effectiveDateTime" in obs, `${obs.id} missing effectiveDateTime`);
-      if ([...prof].some((p) => ALL_FACT_PROFILES.has(p))) {
-        facts.push(obs);
-        assert([...VALUE_KEYS].filter((k) => k in obs).length === 1, `fact ${obs.id} must have exactly one value`);
-      } else {
-        throw new Error(`Observation ${obs.id} declares no MVP fact profile`);
-      }
+      assert(factKind(obs), `Observation ${obs.id} is not a recognized MVP fact`);
+      facts.push(obs);
+      assert([...VALUE_KEYS].filter((k) => k in obs).length === 1, `fact ${obs.id} must have exactly one value`);
     }
     assert(facts.length, "expected facts");
 
     const bleedingByDate = new Map<string, boolean>();
     const flowByDate = new Map<string, string>();
     for (const fact of facts) {
-      const prof = new Set(fact.meta?.profile || []);
       const code = fact.code;
       const date = String(fact.effectiveDateTime || "").slice(0, 10);
       if (hasCoding(code, CYCLE, "menstrual-bleeding")) {
-        assert(prof.has(FACT_PROFILES.bleeding), `bleeding fact ${fact.id} missing bleeding profile`);
         assert(typeof fact.valueBoolean === "boolean", `bad bleeding value in ${fact.id}`);
         bleedingByDate.set(date, fact.valueBoolean);
       }
       if (hasCoding(code, CYCLE, "menstrual-flow")) {
-        assert(prof.has(FACT_PROFILES.flow), `flow fact ${fact.id} missing flow profile`);
         const vals = new Set<string>((fact.valueCodeableConcept?.coding || []).filter((c: any) => c.system === CYCLE).map((c: any) => c.code));
         assert(vals.size === 1 && [...vals].every((v) => FLOW_VALUES.has(v)), `bad flow value in ${fact.id}`);
         flowByDate.set(date, [...vals][0]);
       }
       if (hasCoding(code, CYCLE, "symptom")) {
-        assert(prof.has(FACT_PROFILES.symptom), `symptom fact ${fact.id} missing symptom profile`);
         assert(fact.valueCodeableConcept?.coding?.length || fact.valueCodeableConcept?.text, `bad symptom value in ${fact.id}`);
       }
       if (hasCoding(code, LOINC, "72514-3")) {
-        assert(prof.has(FACT_PROFILES.pain), `pain fact ${fact.id} missing pain profile`);
         const q = fact.valueQuantity || {};
         assert(q.value >= 0 && q.value <= 10 && q.system === UCUM && q.code === "{score}", `${fact.id} bad pain value`);
       }
       if (hasCoding(code, LOINC, "8310-5")) {
-        assert(prof.has(FACT_PROFILES.bbt), `temperature fact ${fact.id} missing temperature profile`);
         const q = fact.valueQuantity || {};
         assert(q.system === UCUM && ["Cel", "[degF]"].includes(q.code), `${fact.id} bad temperature value`);
         assert((fact.category || []).some((cat: any) => hasCoding({ coding: cat.coding || [] }, OBSCAT, "vital-signs")), "temperature must be category vital-signs");
@@ -198,7 +195,24 @@ async function main() {
       const native = decodeBase64Json(binary.data);
       assert(native.sourceApp === "Periodicity" && native.days, "native archive must parse and name the source app");
     }
-    messages.push(`Worked Bundle: ${facts.length} profiled facts, boolean bleeding core, flow consistency, and optional native archive parsing.`);
+    messages.push(`Worked Bundle: ${facts.length} recognized facts, boolean bleeding core, flow consistency, and optional native archive parsing.`);
+
+    const exampleDir = dirname(BUNDLE_FILE);
+    for (const [kind, id] of Object.entries(EXAMPLE_IDS)) {
+      const ex = await load(join(exampleDir, `Observation-${id}.json`));
+      assert(ex.resourceType === "Observation" && ex.id === id, `${id} standalone example has wrong resource/id`);
+      assert(factKind(ex) === kind, `${id} standalone example has wrong fact shape`);
+      assert(!(ex.meta?.profile?.length), `${id} should not stamp meta.profile`);
+      assert(!ex.text, `${id} should not include generated narrative`);
+      assert(!ex.device, `${id} standalone example should not carry an unresolved device reference`);
+      if (kind === "bbt") {
+        assert(ex.subject?.reference === "#example-patient", `${id} standalone body-temperature example should carry a contained patient reference`);
+        assert(ex.contained?.some((r: any) => r.resourceType === "Patient" && r.id === "example-patient"), `${id} standalone body-temperature example should contain its patient`);
+      } else {
+        assert(!ex.subject, `${id} standalone example should not carry an unresolved subject reference`);
+      }
+    }
+    messages.push("Standalone profile examples are generated without inline profile stamps.");
 
     const allJson = glob("*.json", RES);
     for (const file of allJson) JSON.parse(await Bun.file(join(RES, file)).text());

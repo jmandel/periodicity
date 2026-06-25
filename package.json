@@ -7,7 +7,7 @@
     "build:site": "bun scripts/build-site.ts",
     "build:sitegen": "bun scripts/build-sitegen-site.ts",
     "test:sitegen": "bash site-gen/test.sh",
-    "check": "EXAMPLE_OUT=input/resources/Bundle-period-tracking-longitudinal-example.json bun scripts/gen-example.ts && ./_sushi.sh && BUNDLE_FILE=input/resources/Bundle-period-tracking-longitudinal-example.json bun scripts/check-mvp.ts && bun scripts/check-view2.ts",
+    "check": "rm -rf input/resources && mkdir -p input/resources && EXAMPLE_OUT=input/resources/Bundle-period-tracking-longitudinal-example.json bun scripts/gen-example.ts && ./_sushi.sh && BUNDLE_FILE=input/resources/Bundle-period-tracking-longitudinal-example.json bun scripts/check-mvp.ts && bun scripts/check-view2.ts",
     "check:r4": "bun scripts/validate-r4-structures.ts --r4-package ~/.fhir/packages/hl7.fhir.r4.core#4.0.1",
     "verify:viewer": "bun run build && bun scripts/verify-viewer.ts"
   },

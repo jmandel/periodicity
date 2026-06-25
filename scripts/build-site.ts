@@ -4,11 +4,12 @@
  * GitHub Actions. Generated sample data is copied into input/resources only as
  * an ephemeral build input so the IG Publisher can validate and publish it.
  */
-import { cp, readdir, rm } from "node:fs/promises";
+import { cp, mkdir, readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { viewerBuildEnv, viewerOutput, viewerVariants } from "./viewer-variants.ts";
 
 const root = `${import.meta.dir}/..`;
+const exampleDir = `${root}/input/resources`;
 const exampleOut = `${root}/input/resources/Bundle-period-tracking-longitudinal-example.json`;
 const englishOut = `${root}/output/en`;
 const outputOut = `${root}/output`;
@@ -51,13 +52,17 @@ async function mirrorDemoAssets(srcDir: string, destDirs: string[]) {
 
 await requireTool("Graphviz dot", ["dot", "-V"], "Install the graphviz package so PlantUML diagrams render.");
 await requireTool("zip", ["zip", "-v"], "Install zip so the generated agent skill package can be published.");
-await step("generate build example Bundle", ["bun", "scripts/gen-example.ts"], { EXAMPLE_OUT: exampleOut });
+await rm(exampleDir, { recursive: true, force: true });
+await mkdir(exampleDir, { recursive: true });
+await step("generate build examples", ["bun", "scripts/gen-example.ts"], { EXAMPLE_OUT: exampleOut });
 await step("compile FSH", ["./_sushi.sh"]);
 await step("integrity checks", ["bun", "scripts/check-mvp.ts"], { BUNDLE_FILE: exampleOut });
 
 if (!(await Bun.file(publisherJar).exists())) {
   await step("download IG Publisher", ["./_updatePublisher.sh"]);
 }
+await rm(`${root}/output`, { recursive: true, force: true });
+await rm(`${root}/temp/pages`, { recursive: true, force: true });
 await step("run IG Publisher", ["./_genonce.sh"]);
 
 // Publisher writes English pages under output/en plus a root language-redirect

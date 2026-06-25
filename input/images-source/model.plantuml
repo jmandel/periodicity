@@ -1,7 +1,8 @@
 @startuml
+left to right direction
 skinparam shadowing false
 skinparam defaultFontName Helvetica
-skinparam defaultFontSize 12
+skinparam defaultFontSize 13
 skinparam ArrowColor #2B4A7A
 skinparam ArrowFontColor #46566A
 skinparam rectangle {
@@ -10,19 +11,22 @@ skinparam rectangle {
   FontColor #15202E
   roundCorner 12
 }
-rectangle "**PeriodTrackingBundle** — Bundle.type = collection" as Bundle #EAF0F7 {
-  rectangle "Patient — optional, at most one" as Pat
-  rectangle "Device — optional source app" as Dev
-  rectangle "PeriodTrackingFactObservation\nabstract base fact" as Fact
-  rectangle "MenstrualBleedingFact\nrequired core boolean" as Bleed
-  rectangle "Flow / Symptom / Pain / BBT\noptional concrete facts" as Layers
-  rectangle "CodeSystem — optional app-native dictionary" as CS
-  rectangle "Binary — optional native JSON archive" as Bin
-  Pat -[hidden]down- Dev
-  Dev -[hidden]down- Fact
-  Fact <|-- Bleed
-  Fact <|-- Layers
-  Layers -[hidden]down- CS
-  CS -[hidden]down- Bin
-}
+rectangle "**PeriodTrackingBundle**\nBundle.type = collection" as Bundle #EAF0F7
+rectangle "**Layer 0**\nMenstrualBleeding\nrequired: at least one boolean fact" as Bleed
+rectangle "**Layer 1**\nFlow / Symptom / Pain / BBT\noptional concrete facts" as Layers
+rectangle "**Layer 2**\nBinary\noptional native JSON archive" as Bin
+rectangle "Patient\noptional identity, at most one" as Pat
+rectangle "Device\noptional source app/device" as Dev
+rectangle "CodeSystem\noptional app-native dictionary" as CS
+
+Bundle --> Bleed : contains
+Bundle --> Layers : may contain
+Bundle --> Bin : may contain
+Bundle --> Pat : may contain
+Bundle --> Dev : may contain
+Bundle --> CS : may contain
+
+Bleed -[hidden]down- Layers
+Layers -[hidden]down- Bin
+Pat -[hidden]down- Dev
 @enduml

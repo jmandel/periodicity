@@ -30,7 +30,6 @@ export const LOINC = {
 };
 
 export const SCT = {
-  basalTempMethod: "281660007",
   iudInsertion: "65200003", // Insertion of intrauterine contraceptive device (procedure)
   dyspareunia: "71315007",
 };

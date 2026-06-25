@@ -13,7 +13,7 @@ export interface Crumb { label: string; href?: string }
 export interface TocItem { id: string; label: string }
 
 export function Layout({
-  meta, title, crumbs, toc, sidebar, navActive, machineBase, ig, children,
+  meta, title, crumbs, toc, sidebar, navActive, machineBase, aiSource, ig, children,
 }: {
   meta: Record<string, string>;
   title: string;
@@ -22,13 +22,14 @@ export function Layout({
   sidebar?: React.ReactNode;
   navActive?: string;
   machineBase?: string;
+  aiSource?: string;
   ig?: any;
   children: React.ReactNode;
 }) {
   const css = ['fonts', 'colors', 'typography', 'spacing', 'effects'];
   // Only show "On this page" when it's substantive; drop the whole aside if empty.
   const tocItems = toc && toc.length >= 3 ? toc : undefined;
-  const hasAside = Boolean(machineBase || tocItems);
+  const hasAside = Boolean(machineBase || aiSource || tocItems);
   return (
     <html lang="en">
       <head>
@@ -74,6 +75,11 @@ export function Layout({
           {hasAside && (
             <aside className="cycle-toc">
               {machineBase && <MachineFormats base={machineBase} />}
+              {aiSource && (
+                <a className="copy-ai-source" href={aiSource} data-copy-ai-source={aiSource}>
+                  Copy page for AI
+                </a>
+              )}
               {tocItems && (
                 <>
                   <div className="toc-title">On this page</div>
