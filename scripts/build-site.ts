@@ -25,6 +25,16 @@ async function step(name: string, cmd: string[], env: Record<string, string> = {
   if (code !== 0) throw new Error(`${name} failed (exit ${code})`);
 }
 
+async function requireTool(name: string, cmd: string[], hint: string) {
+  try {
+    await step(`check ${name}`, cmd);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(`${name} is required for site builds. ${hint}\n${msg}`);
+  }
+}
+
+await requireTool("Graphviz dot", ["dot", "-V"], "Install the graphviz package so PlantUML diagrams render.");
 await step("generate build example Bundle", ["bun", "scripts/gen-example.ts"], { EXAMPLE_OUT: exampleOut });
 await step("compile FSH", ["./_sushi.sh"]);
 await step("integrity checks", ["bun", "scripts/check-mvp.ts"], { BUNDLE_FILE: exampleOut });

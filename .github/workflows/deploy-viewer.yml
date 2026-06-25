@@ -31,6 +31,10 @@ jobs:
         with:
           ruby-version: '3.3'
       - uses: oven-sh/setup-bun@v2
+      - name: Install native build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y graphviz
       - name: Install deps
         run: bun install --frozen-lockfile
       - name: Install Jekyll
@@ -38,6 +42,7 @@ jobs:
       - name: Build static site
         run: bun run build:site
         env:
+          GRAPHVIZ_DOT: /usr/bin/dot
           VIEWER_BASE: https://cycle.fhir.me/view
           PAGES_CNAME: cycle.fhir.me
       - uses: actions/configure-pages@v5

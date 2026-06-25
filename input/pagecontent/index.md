@@ -4,7 +4,10 @@ This draft defines a deliberately small FHIR R4 exchange model for **patient-gen
 
 ## The whole system at a glance
 
-{% include system.svg %}
+{% capture system_diagram %}{% include system.svg %}{% endcapture %}
+<div class="ptmvp-diagram">
+{{ system_diagram | remove_first: '<?xml version="1.0" encoding="us-ascii" standalone="no"?>' }}
+</div>
 
 1. **Model** — an app maps the data it actually stores to the Bundle profile and concrete fact profiles below. See [Data model](modeling.html) and the [Mapping contract](mapping.html).
 2. **Share** — the Bundle is encrypted into a [SMART Health Link](smart-health-links.html) (compact JWE; the file host never sees the key or plaintext).

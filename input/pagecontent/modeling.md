@@ -2,7 +2,10 @@
 
 ## Resource graph
 
-{% include model.svg %}
+{% capture model_diagram %}{% include model.svg %}{% endcapture %}
+<div class="ptmvp-diagram">
+{{ model_diagram | remove_first: '<?xml version="1.0" encoding="us-ascii" standalone="no"?>' }}
+</div>
 
 FHIR defines a Bundle as a container for a collection of resources. The MVP uses `Bundle.type = collection` because it is a transportable set of independently meaningful resources rather than an attested clinical document.
 
