@@ -1,4 +1,4 @@
-name: Deploy site to Pages
+name: Build and deploy site
 
 # Builds the IG site, generated example Bundle, reference viewer, sample JWE, and
 # sample SHLink in the runner. Generated artifacts are uploaded to Pages but are
@@ -16,7 +16,7 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build:
