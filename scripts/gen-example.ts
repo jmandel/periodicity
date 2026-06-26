@@ -38,12 +38,6 @@ const exampleByKind: Record<string, Res> = {};
 // validation churn; the codes themselves are validated against the terminology server.
 const cc = (system: string, code: string, display?: string) => ({ coding: [{ system, code, ...(display ? { display } : {}) }] });
 const qty = (value: number, code: string, unit: string) => ({ valueQuantity: { value, unit, system: SYS.ucum, code } });
-const base64Utf8 = (text: string) => {
-  const bytes = new TextEncoder().encode(text);
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary);
-};
 
 function standaloneExample(kind: keyof typeof exampleIds, resource: Res) {
   if (exampleByKind[kind]) return;
@@ -133,17 +127,6 @@ for (const d of daily) {
     });
   }
 }
-
-// --- optional native-JSON archive (the "Complete export" safety net) ---
-const nativeDays = daily.filter((d) => d.isPeriod || d.note || d.bbt != null).slice(0, 6).map((d) => ({
-  date: d.date, bleeding: (d.flow || 0) > 0, flow: d.flow ? FLOW_CODE_BY_LEVEL[d.flow].replace("flow-", "") : undefined,
-  painScore: d.pain || undefined, temperature: d.bbt != null ? { value: d.bbt, unit: "Cel", basal: true } : undefined, note: d.note || undefined,
-}));
-const native = { sourceApp: "Periodicity", appVersion: "synthetic", schemaVersion: 1, timezone: "America/Chicago", days: nativeDays };
-add({
-  resourceType: "Binary", id: "native-source", contentType: "application/json",
-  securityContext: ref("Patient", PT), data: base64Utf8(JSON.stringify(native)),
-});
 
 // --- assemble the bundle ---
 const bundle = {

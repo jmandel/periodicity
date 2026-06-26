@@ -26,14 +26,16 @@ function assertSafeSelect(query: string): string {
   return normalized;
 }
 
-function cellLooksLikeCode(column: string, value: unknown): boolean {
-  if (value == null) return false;
-  if (typeof value !== 'string' && typeof value !== 'number') return false;
-  return columnLooksLikeCode(column);
+function columnHintLooksLikeCode(column: string): boolean {
+  return /\b(code|system|url|uri|canonical|id|json|value|pattern)\b/i.test(column);
 }
 
-function columnLooksLikeCode(column: string): boolean {
-  return /\b(code|system|url|uri|canonical|id|json|value|pattern)\b/i.test(column);
+function valueLooksLikeCode(value: unknown): boolean {
+  if (value == null) return false;
+  if (typeof value !== 'string' && typeof value !== 'number') return false;
+  const s = String(value).trim();
+  if (!s || /\s/.test(s)) return false;
+  return /^(https?:\/\/|urn:|[A-Za-z][A-Za-z0-9+.-]*:\/\/)/.test(s) || /[#/{}_.:-]|\d/.test(s);
 }
 
 function renderSqlTable(rows: Record<string, any>[], control: { class?: string; titles?: boolean; columns?: SqlColumn[] } = {}): string {
@@ -41,12 +43,19 @@ function renderSqlTable(rows: Record<string, any>[], control: { class?: string; 
   const columns = control.columns?.length
     ? control.columns
     : Object.keys(rows[0]).map((name) => ({ source: name, name, title: name, type: 'auto' }));
+  const codeColumns = columns.map((col) => {
+    const source = col.source || col.name || '';
+    const label = col.title || col.name || col.source || '';
+    if (columnHintLooksLikeCode(label)) return true;
+    const values = rows.map((row) => row[source]).filter((v) => v != null && String(v).trim() !== '');
+    return values.length > 0 && values.every(valueLooksLikeCode);
+  });
   const tableClass = `cycle-table sql-table${control.class ? ` ${esc(control.class)}` : ''}`;
-  const head = control.titles === false ? '' : `<thead><tr>${columns.map((c) => {
+  const head = control.titles === false ? '' : `<thead><tr>${columns.map((c, i) => {
     const label = c.title || c.name || c.source || '';
-    return `<th${columnLooksLikeCode(label) ? ' class="sql-code-col"' : ''}>${esc(label)}</th>`;
+    return `<th${codeColumns[i] ? ' class="code-col"' : ''}>${esc(label)}</th>`;
   }).join('')}</tr></thead>`;
-  const renderCell = (row: Record<string, any>, col: SqlColumn) => {
+  const renderCell = (row: Record<string, any>, col: SqlColumn, isCodeColumn: boolean) => {
     const source = col.source || col.name || '';
     const value = row[source];
     const type = col.type || 'auto';
@@ -59,13 +68,12 @@ function renderSqlTable(rows: Record<string, any>[], control: { class?: string; 
       const display = col.display ? (row[col.display] ?? col.display) : undefined;
       return `<span class="sql-coding">${system ? `<span>${esc(system)}</span> ` : ''}<code>${esc(value)}</code>${display ? ` <span>${esc(display)}</span>` : ''}</span>`;
     }
-    return cellLooksLikeCode(source, value) ? `<code>${esc(value)}</code>` : esc(value);
+    return isCodeColumn ? `<code>${esc(value)}</code>` : esc(value);
   };
   const body = rows.map((row) => {
-    const cells = columns.map((c) => {
-      const source = c.source || c.name || '';
-      const className = cellLooksLikeCode(source, row[source]) ? ' class="sql-code-col"' : '';
-      return `<td${className}>${renderCell(row, c)}</td>`;
+    const cells = columns.map((c, i) => {
+      const className = codeColumns[i] ? ' class="code-col"' : '';
+      return `<td${className}>${renderCell(row, c, codeColumns[i])}</td>`;
     }).join('');
     return `<tr>${cells}</tr>`;
   }).join('');

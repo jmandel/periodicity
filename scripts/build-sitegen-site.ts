@@ -43,7 +43,7 @@ async function writeSampleViewerInclude(shlinkFile: string) {
   const idx = link.indexOf('shlink:/');
   if (idx < 0) throw new Error(`${shlinkFile} does not contain a shlink:/ payload`);
   const fragment = `#${link.slice(idx)}`;
-  const md = `[Reference viewer](view.html${fragment}) · [Binary-first viewer](view2.html${fragment}) · [Bleeding-first viewer](view3.html${fragment})\n`;
+  const md = `[Reference viewer](view.html${fragment}) · [Layer 0 summary viewer](view2.html${fragment}) · [Bleeding-first viewer](view3.html${fragment})\n`;
   await mkdir(join(root, 'input/includes'), { recursive: true });
   await writeFile(join(root, 'input/includes/sample-viewer-links.md'), md);
 }

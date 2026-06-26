@@ -37,18 +37,20 @@ export function CodeSystemPage({ r, data, concepts }: { r: ResourceRow; data: an
       />
       <section className="art-section" id="concepts">
         <SectionHeading id="concepts">Concepts</SectionHeading>
-        <table className="cycle-table">
-          <thead><tr><th>Code</th><th>Display</th><th>Definition</th></tr></thead>
-          <tbody>
-            {rows.map(({ c, depth }) => (
-              <tr key={c.Key}>
-                <td style={{ paddingLeft: 14 + depth * 18 }}><code style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{c.Code}</code></td>
-                <td>{c.Display || ''}</td>
-                <td className="muted" style={{ color: 'var(--ink-700)' }}>{c.Definition || ''}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="table-scroll">
+          <table className="cycle-table">
+            <thead><tr><th>Code</th><th>Display</th><th>Definition</th></tr></thead>
+            <tbody>
+              {rows.map(({ c, depth }) => (
+                <tr key={c.Key}>
+                  <td style={{ paddingLeft: 14 + depth * 18 }}><code style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{c.Code}</code></td>
+                  <td>{c.Display || ''}</td>
+                  <td className="muted" style={{ color: 'var(--ink-700)' }}>{c.Definition || ''}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </section>
     </>
   );

@@ -16,7 +16,7 @@ export const includes: IncludeRegistry = {
     if (!deps.length) return '<p class="muted">No package dependencies.</p>';
     const rows = deps.map((d: any) =>
       `<tr><td><code>${esc(d.packageId || d.uri || '')}</code></td><td><code>${esc(d.version || '')}</code></td></tr>`).join('');
-    return `<table class="cycle-table"><thead><tr><th>Package</th><th>Version</th></tr></thead><tbody>${rows}</tbody></table>`;
+    return `<div class="table-scroll"><table class="cycle-table"><thead><tr><th>Package</th><th>Version</th></tr></thead><tbody>${rows}</tbody></table></div>`;
   },
 
   // globals: derived from IG.global.
@@ -24,7 +24,7 @@ export const includes: IncludeRegistry = {
     const g = ig.global || [];
     if (!g.length) return '<p class="muted">No global profiles declared.</p>';
     const rows = g.map((x: any) => `<tr><td><code>${esc(x.type)}</code></td><td><code>${esc(x.profile)}</code></td></tr>`).join('');
-    return `<table class="cycle-table"><thead><tr><th>Type</th><th>Profile</th></tr></thead><tbody>${rows}</tbody></table>`;
+    return `<div class="table-scroll"><table class="cycle-table"><thead><tr><th>Type</th><th>Profile</th></tr></thead><tbody>${rows}</tbody></table></div>`;
   },
 
   // IP / copyright: derived from IG metadata.

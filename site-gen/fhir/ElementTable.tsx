@@ -192,6 +192,20 @@ export function elementViews(snapshot: El[] = [], differential: El[] = [], rootT
     }
   };
 
+  const localize = (e: El) => {
+    const d = diffByPath.get(e.path);
+    if (!d) return e;
+    return {
+      ...e,
+      short: d.short ?? e.short,
+      definition: d.definition ?? e.definition,
+      // Inherited FHIR comments are often broad background text. Treat comments
+      // as IG guidance only when the profile differential explicitly supplies one.
+      comment: d.comment,
+      constraint: d.constraint,
+    };
+  };
+
   const keyPaths = new Set(all
     .filter((e) => !isHidden(e))
     .filter((e) => {
@@ -208,8 +222,8 @@ export function elementViews(snapshot: El[] = [], differential: El[] = [], rootT
   addAncestors(differentialPaths);
 
   return {
-    key: all.filter((e) => keyPaths.has(e.path)),
-    differential: all.filter((e) => differentialPaths.has(e.path)),
+    key: all.filter((e) => keyPaths.has(e.path)).map(localize),
+    differential: all.filter((e) => differentialPaths.has(e.path)).map(localize),
     snapshot: all,
   };
 }

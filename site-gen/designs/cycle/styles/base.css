@@ -209,6 +209,7 @@ img { max-width: 100%; }
 .cycle-prose blockquote { margin: var(--space-4) 0; padding: var(--space-3) var(--space-5); background: var(--paper-sunken); border-left: 3px solid var(--ink-300); border-radius: var(--radius-md); color: var(--ink-700); }
 .cycle-prose table, .cycle-table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); border: var(--border-hair); border-radius: var(--radius-md); overflow: hidden; background: var(--paper-card); margin: var(--space-4) 0; }
 .table-scroll {
+  width: 100%;
   max-width: 100%;
   overflow-x: auto;
   margin: var(--space-4) 0;
@@ -218,7 +219,7 @@ img { max-width: 100%; }
 }
 .table-scroll > .cycle-table,
 .table-scroll > table {
-  width: max-content;
+  width: auto;
   min-width: 100%;
   max-width: none;
   margin: 0;
@@ -229,19 +230,41 @@ img { max-width: 100%; }
   background: var(--paper-sunken); text-align: left; font-family: var(--font-body);
   font-size: var(--text-xs); line-height: var(--leading-snug); letter-spacing: 0;
   color: var(--ink-600); font-weight: 700; padding: 8px 12px;
+  overflow-wrap: normal;
 }
-.cycle-prose td, .cycle-table td { padding: 10px 14px; border-top: var(--border-hair); vertical-align: top; }
+.cycle-prose td, .cycle-table td {
+  padding: 10px 14px;
+  border-top: var(--border-hair);
+  vertical-align: top;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
 .cycle-prose table td:first-child strong,
 .cycle-table td:first-child strong { white-space: nowrap; }
-.sql-table .sql-code-col,
-.sql-table .sql-code-col code {
+.cycle-prose th.code-col,
+.cycle-prose td.code-col,
+.cycle-table th.code-col,
+.cycle-table td.code-col,
+.cycle-prose td:has(> code:only-child),
+.cycle-table td:has(> code:only-child),
+.cycle-prose th.code-col code,
+.cycle-prose td.code-col code,
+.cycle-table th.code-col code,
+.cycle-table td.code-col code,
+.cycle-prose td:has(> code:only-child) code,
+.cycle-table td:has(> code:only-child) code {
   white-space: nowrap;
   overflow-wrap: normal;
   word-break: normal;
 }
-.sql-table th.sql-code-col,
-.sql-table td.sql-code-col {
+.cycle-prose th.code-col,
+.cycle-prose td.code-col,
+.cycle-table th.code-col,
+.cycle-table td.code-col,
+.cycle-prose td:has(> code:only-child),
+.cycle-table td:has(> code:only-child) {
   width: 1%;
+  max-width: none;
 }
 .cycle-prose .contains-task-list { list-style: none; padding-left: 0; }
 .cycle-prose .task-list-item { list-style: none; margin: .5em 0; padding-left: 1.85em; }
@@ -257,8 +280,17 @@ img { max-width: 100%; }
    Artifacts rows
    ============================================================ */
 .art-card { border: var(--border-hair); border-radius: var(--radius-md); overflow: hidden; background: var(--paper-card); }
-.art-row { border-top: var(--border-hair); }
+.art-row {
+  display: block;
+  border-top: var(--border-hair);
+  color: inherit;
+  text-decoration: none;
+}
 .art-row:first-child { border-top: none; }
+.art-row:hover {
+  background: var(--paper-sunken);
+  text-decoration: none;
+}
 .art-subgroup {
   border-top: var(--border-hair); background: var(--paper-sunken);
   padding: 7px 16px; font-family: var(--font-mono); font-size: var(--text-2xs);
@@ -269,7 +301,7 @@ img { max-width: 100%; }
 .art-name { font-family: var(--font-display); font-weight: 600; font-size: var(--text-base); color: var(--ink-900); }
 .art-short { font-size: var(--text-sm); color: var(--ink-500); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .art-detail { padding: 0 16px 14px 16px; color: var(--ink-700); font-size: var(--text-sm); line-height: var(--leading-normal); }
-.art-detail .art-link { font-family: var(--font-mono); font-size: var(--text-xs); }
+.art-action { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--menstrual-deep); }
 @media (max-width: 680px) {
   .art-summary { grid-template-columns: 1fr; gap: 8px; }
   .art-summary > .art-kind, .art-short { display: none; }

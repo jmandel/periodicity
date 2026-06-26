@@ -46,28 +46,24 @@ description: Add standards-based menstrual/cycle data sharing to a period-, fert
 `;
 
 const siteLinkTargets: Record<string, string> = {
-  "smart-health-links": "spec/smart-health-links.md",
+  "smart-health-links": "spec/specification.md#smart-health-links",
   specification: "spec/specification.md",
   implementation: "SKILL.md",
   skill: "SKILL.md",
+  examples: "spec/examples.md",
+  references: "spec/references.md",
+  "ig-details": "spec/ig-details.md",
 };
 
 const specLinkTargets: Record<string, string> = {
-  "fhir-mapping": `${siteBase}/fhir-mapping.html`,
-  "journal-templates": `${siteBase}/journal-templates.html`,
-  "smart-health-links-implementation": `${siteBase}/smart-health-links-implementation.html`,
-  "viewer-integration": `${siteBase}/viewer-integration.html`,
   skill: "../SKILL.md",
   implementation: "../SKILL.md",
   index: "index.md",
   specification: "specification.md",
-  "smart-health-links": "smart-health-links.md",
-  "clinical-display": "clinical-display.md",
   examples: "examples.md",
-  security: "security.md",
-  testing: "testing.md",
   references: "references.md",
   "ig-details": "ig-details.md",
+  artifacts: `${siteBase}/artifacts.html`,
   view: `${siteBase}/view.html`,
   view2: `${siteBase}/view2.html`,
   view3: `${siteBase}/view3.html`,
@@ -120,11 +116,7 @@ await writeFile(join(staging, "SKILL.md"), skillFrontMatter + siteToPackageLinks
 for (const file of [
   "index.md",
   "specification.md",
-  "smart-health-links.md",
-  "clinical-display.md",
   "examples.md",
-  "security.md",
-  "testing.md",
   "references.md",
   "ig-details.md",
 ]) {

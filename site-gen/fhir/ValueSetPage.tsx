@@ -26,22 +26,27 @@ export function ValueSetPage({ r, data, resolve, expansion }: { r: ResourceRow; 
       <section className="art-section" id="definition">
         <SectionHeading id="definition">Composition</SectionHeading>
         {includes.map((inc, i) => {
-          const sysName = inc.system ? (inc.system.split('/').pop() || inc.system) : '—';
+          const systemUrl = inc.system || '—';
+          const systemHref = inc.system?.startsWith('https://cycle.fhir.me/')
+            ? resolve('CodeSystem', inc.system)
+            : inc.system;
           return (
             <div key={i} style={{ marginBottom: 18 }}>
               <p style={{ margin: '0 0 8px', fontSize: 'var(--text-sm)', color: 'var(--ink-700)' }}>
                 Include {inc.concept ? `${inc.concept.length} code${inc.concept.length === 1 ? '' : 's'} from` : 'all codes from'}{' '}
-                <Tag tone="luteal" href={resolve('CodeSystem', inc.system)}>{sysName}</Tag>
+                <Tag tone="luteal" href={systemHref}>{systemUrl}</Tag>
               </p>
               {inc.concept && (
-                <table className="cycle-table">
-                  <thead><tr><th>Code</th><th>Display</th></tr></thead>
-                  <tbody>
-                    {inc.concept.map((c: any) => (
-                      <tr key={c.code}><td><code style={{ fontFamily: 'var(--font-mono)' }}>{c.code}</code></td><td>{c.display || ''}</td></tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="table-scroll">
+                  <table className="cycle-table">
+                    <thead><tr><th>Code</th><th>Display</th></tr></thead>
+                    <tbody>
+                      {inc.concept.map((c: any) => (
+                        <tr key={c.code}><td><code style={{ fontFamily: 'var(--font-mono)' }}>{c.code}</code></td><td>{c.display || ''}</td></tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
               {inc.filter && (
                 <ul style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-700)' }}>
@@ -56,14 +61,20 @@ export function ValueSetPage({ r, data, resolve, expansion }: { r: ResourceRow; 
       {expansion.length > 0 && (
         <section className="art-section" id="expansion">
           <SectionHeading id="expansion">Expansion</SectionHeading>
-          <table className="cycle-table">
-            <thead><tr><th>Code</th><th>Display</th><th>System</th></tr></thead>
-            <tbody>
-              {expansion.map((c, i) => (
-                <tr key={i}><td><code style={{ fontFamily: 'var(--font-mono)' }}>{c.code}</code></td><td>{c.display || ''}</td><td><span className="muted">{c.system.split('/').pop()}</span></td></tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="table-scroll">
+            <table className="cycle-table">
+              <thead><tr><th>Code</th><th>Display</th><th>System</th></tr></thead>
+              <tbody>
+                {expansion.map((c, i) => (
+                  <tr key={i}>
+                    <td><code style={{ fontFamily: 'var(--font-mono)' }}>{c.code}</code></td>
+                    <td>{c.display || ''}</td>
+                    <td><code style={{ fontFamily: 'var(--font-mono)' }}>{c.system}</code></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </section>
       )}
     </>

@@ -8,6 +8,77 @@ const slugify = (s: string) =>
 
 const md = new MarkdownIt({ html: true, linkify: true, typographer: false });
 md.use((md) => {
+  const inlineIsCodeOnly = (inline: any) => {
+    const children = inline?.children || [];
+    const meaningful = children.filter((child: any) => {
+      if (child.type === 'text') return child.content.trim() !== '';
+      return child.type !== 'softbreak' && child.type !== 'hardbreak';
+    });
+    if (!meaningful.length) return false;
+    let hasCode = false;
+    for (const child of meaningful) {
+      if (child.type === 'code_inline') {
+        hasCode = true;
+        continue;
+      }
+      if (child.type === 'text' && /^[\s,;/|()]+$/.test(child.content)) continue;
+      return false;
+    }
+    return hasCode;
+  };
+
+  md.core.ruler.after('inline', 'table_code_columns', (state) => {
+    const tokens = state.tokens;
+    for (let i = 0; i < tokens.length; i++) {
+      if (tokens[i].type !== 'table_open') continue;
+
+      let end = i + 1;
+      while (end < tokens.length && tokens[end].type !== 'table_close') end++;
+
+      const rows: Array<{ isHeader: boolean; cells: Array<{ open: number; codeOnly: boolean; hasContent: boolean }> }> = [];
+      let inHead = false;
+      let currentRow: { isHeader: boolean; cells: Array<{ open: number; codeOnly: boolean; hasContent: boolean }> } | null = null;
+      let currentCell: { open: number; inline: any | null } | null = null;
+
+      for (let j = i + 1; j < end; j++) {
+        const token = tokens[j];
+        if (token.type === 'thead_open') inHead = true;
+        if (token.type === 'thead_close') inHead = false;
+        if (token.type === 'tr_open') currentRow = { isHeader: inHead, cells: [] };
+        if (token.type === 'tr_close' && currentRow) {
+          rows.push(currentRow);
+          currentRow = null;
+        }
+        if (token.type === 'th_open' || token.type === 'td_open') currentCell = { open: j, inline: null };
+        if (token.type === 'inline' && currentCell) currentCell.inline = token;
+        if ((token.type === 'th_close' || token.type === 'td_close') && currentRow && currentCell) {
+          const content = currentCell.inline?.content?.trim() || '';
+          currentRow.cells.push({
+            open: currentCell.open,
+            codeOnly: inlineIsCodeOnly(currentCell.inline),
+            hasContent: content.length > 0,
+          });
+          currentCell = null;
+        }
+      }
+
+      const bodyRows = rows.some((row) => !row.isHeader) ? rows.filter((row) => !row.isHeader) : rows.slice(1);
+      const maxCols = Math.max(0, ...rows.map((row) => row.cells.length));
+      const codeCols = new Set<number>();
+      for (let col = 0; col < maxCols; col++) {
+        const cells = bodyRows.map((row) => row.cells[col]).filter((cell) => cell?.hasContent);
+        if (cells.length > 0 && cells.every((cell) => cell.codeOnly)) codeCols.add(col);
+      }
+      if (!codeCols.size) continue;
+
+      for (const row of rows) {
+        row.cells.forEach((cell, col) => {
+          if (codeCols.has(col)) tokens[cell.open].attrJoin('class', 'code-col');
+        });
+      }
+    }
+  });
+
   md.core.ruler.after('inline', 'task_lists', (state) => {
     const tokens = state.tokens;
     const firstInlineInListItem = (start: number) => {

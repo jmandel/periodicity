@@ -28,7 +28,7 @@ export function ArtifactsPage({
     <div className="art-detail">
       {r.Description || <em>No description.</em>}
       <div style={{ marginTop: 8 }}>
-        <a className="art-link" href={page(r)}>Open artifact: {r.Type}-{r.Id} →</a>
+        <span className="art-action">Open →</span>
       </div>
     </div>
   );
@@ -60,14 +60,14 @@ export function ArtifactsPage({
                 return (
                   <React.Fragment key={r.Id}>
                     {groupLabel && groupLabel !== priorGroupLabel && <div className="art-subgroup">{groupLabel}</div>}
-                    <div className="art-row">
+                    <a className="art-row" href={page(r)} aria-label={`Open ${r.Title || r.Name || r.Id}`}>
                       <div className="art-summary">
                         <span className="art-name">{r.Title || r.Name || r.Id}</span>
                         <span className="art-kind"><Tag>{r.sdType || r.Type}</Tag></span>
                         <span className="art-short">{shortOf(r.Description)}</span>
                       </div>
                       {detail(r)}
-                    </div>
+                    </a>
                   </React.Fragment>
                 );
               })}

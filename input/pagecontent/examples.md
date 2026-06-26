@@ -11,8 +11,7 @@ It exercises every construct in this guide in one place:
 - the **granular-first** pattern — boolean bleeding and flow intensity as *separate* facts, so binary-only apps and flow-capable apps share the same core;
 - **pain** as a 0–10 score, **symptoms** as `cycle#symptom` facts with exact SNOMED or app-native values, and **basal body temperature** as a vital sign;
 - an **explicit negative** — a day the user verified *no bleeding* (distinct from a day that simply wasn't recorded);
-- one **app-native custom symptom** via the escape hatch (a code from an app-controlled CodeSystem, with no false standard mapping); and
-- an optional **`Binary` native-JSON archive** — the "Complete export" safety net.
+- one **app-native custom symptom** via the escape hatch (a code from an app-controlled CodeSystem, with no false standard mapping).
 
 The published site build also creates a direct-file SMART Health Link for this Bundle. The reference viewer fetches the encrypted file, decrypts it in the browser with the key carried in the link fragment, and computes every cycle metric from the granular facts. A provider scanner or another viewer can extract the same `shlink:/...` payload from either a viewer-prefixed or raw SHLink QR and apply its own visualization. The key here is public **only because the data is synthetic** — a real share keeps the key in the link fragment and out of any server log.
 

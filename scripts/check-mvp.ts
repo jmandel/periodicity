@@ -83,13 +83,6 @@ function* refs(value: any): Iterable<string> {
   }
 }
 
-function decodeBase64Json(data: string) {
-  const bin = atob(data);
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return JSON.parse(new TextDecoder().decode(bytes));
-}
-
 async function main() {
   const messages: string[] = [];
   const errors: string[] = [];
@@ -190,12 +183,8 @@ async function main() {
       assert(bleedingByDate.get(date) === (flow !== "flow-none"), `flow/bleeding mismatch on ${date}: ${flow}`);
     }
 
-    const binary = kinds.get("Binary")?.[0];
-    if (binary) {
-      const native = decodeBase64Json(binary.data);
-      assert(native.sourceApp === "Periodicity" && native.days, "native archive must parse and name the source app");
-    }
-    messages.push(`Worked Bundle: ${facts.length} recognized facts, boolean bleeding core, flow consistency, and optional native archive parsing.`);
+    assert(!kinds.get("Binary")?.length, "worked Bundle should not include a Binary native archive in this MVP");
+    messages.push(`Worked Bundle: ${facts.length} recognized facts, boolean bleeding core, and flow consistency.`);
 
     const exampleDir = dirname(BUNDLE_FILE);
     for (const [kind, id] of Object.entries(EXAMPLE_IDS)) {

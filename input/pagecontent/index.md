@@ -14,7 +14,7 @@ The required interoperable core is **Layer 0: a bleeding calendar** — menstrua
 </div>
 
 1. **Model** — export the app's real stored data as a [Period Tracking Bundle](StructureDefinition-period-tracking-bundle.html), starting with Layer 0 bleeding facts.
-2. **Share** — encrypt the Bundle into a [SMART Health Link](specification.html#smart-health-link-packaging); the host never sees the key or plaintext.
+2. **Share** — encrypt the Bundle into a [SMART Health Link](specification.html#smart-health-links); the host never sees the key or plaintext.
 3. **View** — decrypt locally and compute summaries from granular facts; no precomputed clinical summary travels in the Bundle.
 
 ## Try it now
