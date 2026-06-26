@@ -12,18 +12,22 @@ This restraint is the point: the data is sensitive, and a clinician must be able
 
 ## Workflow
 
-1. **Set success criteria before coding.** Decide what the demo must prove: date range, categories included, sharing flow, host controls, viewer or scanner target, privacy boundary, sample data, and validation steps. Note explicit non-goals. Keep this checklist live as you build.
-2. **Confirm product-shaping choices.** Ask for decisions that affect the implementation:
-   - **Sharing flow** — downloaded file, bare SHLink QR/link, or viewer-prefixed link? Prefer a viewer-prefixed link for broad phone-camera UX; SHL-aware scanners can still extract the embedded `shlink:/...`.
-   - **Ciphertext host** — app backend or deployable blind service such as [shlep](https://github.com/jmandel/shlep)? Frame this as the controls the product can honestly promise: revocation, expiry, use-limit, passcode, and access log visibility.
-   - **Viewer** — use the reference viewer source, host your own copy, embed your own, or integrate scanning into a provider app?
-   - **Sensitive scope** — which categories, such as sexual activity, mental-health, or fertility signs, are included versus held back?
+1. **Create the implementation checklist.** Before coding, record the app-specific answer for each required item:
+   - **User scope UI** — how the user selects the person/account, date range, and data categories, and where the app shows the plain-language preview.
+   - **Layer 0 source** — which stored field(s) become menstrual-bleeding `true` / `false`, and how the app distinguishes explicit "no bleeding" from missing data or untouched defaults.
+   - **Layer 1 source** — which flow, symptom, pain, and basal-temperature facts are mapped, and which source fields are intentionally omitted.
+   - **Live SHLink host** — app backend or deployable blind service such as [shlep](https://github.com/jmandel/shlep), plus the controls the host really enforces: revocation, expiry, use-limit, passcode, and access log visibility.
+   - **QR handoff widget** — one live SHLink rendered as an on-screen QR, with copy and native-share controls for the identical string. Prefer a viewer-prefixed link for broad phone-camera UX; use a bare `shlink:/...` QR only for workflows that already have SHL-aware scanners.
+   - **Stop-sharing behavior** — how the user disables the live QR/link, and which automatic stop conditions apply, such as expiry or use-limit exhaustion.
+   - **Receiver path** — reference viewer, app-hosted viewer, embedded viewer, or provider scanner.
+   - **Privacy and validation evidence** — Bundle validation, QR scan/open, viewer rendering, host access without plaintext or key, and revoke/expiry/use-limit behavior when advertised.
+2. **Resolve only missing product values.** Ask for whatever is needed to fill the checklist above. Do not substitute a file download or ad hoc export for the QR-based live SHLink handoff.
 3. **Create one source snapshot.** Use one immutable, user-approved snapshot as the input to preview, normalization, encryption, and QR/copy/share. Apply the selected person, date range, and category scope before normalization so the preview and encrypted payload describe the same data.
 4. **Inventory the app.** Read the storage model, serializers, exports, UI, demo data, and tests before mapping. Identify stored bleeding states, flow, symptoms, pain, temperature, custom dictionaries, predictions, defaults, derived summaries, source application metadata, schema versions, and stable source identifiers.
 5. **Classify every candidate field.** Export `user-entered` data: selected, entered, verified, measured, or imported facts. Usually omit `derived` data; never export `prediction`, `default`, `configuration`, or `not-stored` data as observed facts.
 6. **Build the FHIR Bundle.** Use the [Period Tracking Bundle](StructureDefinition-period-tracking-bundle.html), include at least one Layer 0 [Menstrual Bleeding](StructureDefinition-menstrual-bleeding.html) fact, and add Layer 1 profiles only when the source has those facts.
 7. **Apply missing-data rules.** An explicit "none/no" is a fact. An untouched default or absent row is not. Never fabricate negatives from missing data.
-8. **Encrypt and share.** Package the Bundle as a SMART Health Link direct-file share. Prefer a viewer-prefixed URL for ordinary phone-camera UX, but keep the `shlink:/...` value in the fragment after `#`.
+8. **Encrypt and present the share widget.** Package the Bundle as a SMART Health Link direct-file share, mint a live SHLink, and render it as an on-screen QR. Prefer a viewer-prefixed URL for ordinary phone-camera UX, but keep the `shlink:/...` value in the fragment after `#`. The same widget should also provide copy and native-share controls for the identical string, plus a way to stop the live QR/link or explain when it will stop automatically.
 9. **Render locally.** A viewer or provider scanner decrypts client-side and computes summaries from granular facts. Do not send decrypted FHIR back to a server.
 10. **Verify end to end.** Validate the Bundle, round-trip encrypt/decrypt, scan or open the link, render the viewer, and confirm the host never receives plaintext or the key.
 
@@ -70,7 +74,7 @@ https://example-viewer/#shlink:/...
 
 The SHLink must stay after `#` so the viewer host never receives the key. SHL-aware scanners can scan either a viewer-prefixed QR or a bare `shlink:/...` QR and process the embedded SHLink with their own display logic.
 
-For product shares, start from the assumption that the user needs a managed, revocable share. A static object can demonstrate the direct-file wire format, but it is not a good implementation target for period-tracking products because it cannot enforce use limits, passcodes, expiry, or access logs.
+For product shares, start from the assumption that the user needs a live, managed, revocable share presented as a QR. Do not make a downloaded file the product handoff. The share should keep working through the SHLink until the host policy stops it, and the app should only surface controls the host actually enforces.
 
 The practical choice is whether to build SHLink hosting controls into your own backend or deploy a reusable blind SHLink service.
 
@@ -87,20 +91,21 @@ Either way, the privacy boundary holds: the host stores only ciphertext; the key
 - Backends: any object store, including S3, R2, GCS, Azure Blob, or MinIO.
 - Deployment posture: you deploy and operate it; there is no public hosted instance for production health data.
 
-If you do not deploy shlep, you are implementing both the share-minting client path and the server/storage path yourself. The client-side crypto and link construction are small and reusable: use shlep's `src/crypto.ts` (compact JWE `dir`/A256GCM, WebCrypto only) and `src/client.ts` (encrypt + compose the `shlink:/`) directly or translated. For direct-file mode, your backend or object store then hosts the `.jwe`, and your app hands out either a bare `shlink:/<payload>` or `<viewer>#shlink:/<payload>`.
+If you do not deploy shlep, you are implementing both the share-minting client path and the server/storage path yourself. The client-side crypto and link construction are small and reusable: use shlep's `src/crypto.ts` (compact JWE `dir`/A256GCM, WebCrypto only) and `src/client.ts` (encrypt + compose the `shlink:/`) directly or translated. Your backend then hosts the `.jwe` behind the controls the product promises, and your app renders the resulting `shlink:/<payload>` or `<viewer>#shlink:/<payload>` as the QR/copy/share target.
 
-The user-facing share UI should provide the same minted link through both scan and send paths:
+The user-facing share widget should provide one minted live SHLink through all handoff paths:
 
 - on-screen QR;
-- copy/share of the identical string;
+- copy of the identical string;
+- native share of the identical string when the platform supports it;
 - plain-language summary of what's inside, the date range, and who can open it; and
-- a visible way to stop sharing that actually makes the link stop resolving.
+- a visible way to stop sharing that actually makes the QR/link stop resolving, unless the product uses an automatic stop condition such as expiry or use-limit exhaustion and explains that clearly.
 
 Only surface controls the host enforces. Do not show "2 opens left" if the host cannot count retrievals, and do not imply auto-expiry unless the host stops serving at expiry.
 
 ## Viewer and display
 
-The included viewers are examples, not required components. A conforming producer may use this site's viewer prefix, host its own viewer, integrate a viewer into the app, or produce a bare SHLink for workflows that already have SHL-aware scanners.
+The included viewers are examples, not required components. A conforming producer may use this site's viewer prefix, host its own viewer, integrate a viewer into the app, or render a bare SHLink QR for workflows that already have SHL-aware scanners.
 
 A viewer should:
 
