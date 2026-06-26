@@ -10,24 +10,39 @@ Map only what the app actually stores. Read the app's data model, storage, expor
 
 This restraint is the point: the data is sensitive, and a clinician must be able to trust that every fact reflects something the user actually entered, selected, measured, imported, or verified.
 
+## Recommended Share with SMART Link UX
+
+Use **Share with SMART Link** as the working feature name when it fits the app. Other labels are fine, but the feature should make the user-facing task clear: create an encrypted link or QR code for selected cycle data.
+
+A consistent share flow has four parts:
+
+1. **Choose scope.** Let the user choose the person/account, date range, and data categories. Layer 0 bleeding facts are the core of a compatible share. Layer 1 details such as flow, symptoms, pain, and basal temperature are included only when selected and available.
+2. **Review before sharing.** Show a plain-language preview of the date range, included data types, excluded data types when relevant, identity details if present, and when the link stops working. State that anyone with the link can open it until it is stopped or expires.
+3. **Share the live link.** Mint one live SHLink and present it through the available handoff controls: on-screen QR, copy link, and native share. These controls all use the identical string.
+4. **Manage sharing.** Show whether the link is active, how the user can stop it, and any host-enforced controls such as expiry, use limit, passcode, or access log. Do not show controls the host cannot enforce.
+
+The preview can be brief. For example: "This SMART Link includes bleeding days, flow, symptoms, and pain from Jan 1-Mar 31, 2026. It does not include notes. Anyone with the link can open it until you stop sharing."
+
 ## Workflow
 
 1. **Create the implementation checklist.** Before coding, record the app-specific answer for each required item:
-   - **Share review screen** — how the user selects the person/account, date range, and data categories, and where the app shows what will be included, what will be excluded, and how the live QR/link can be opened or stopped.
+   - **Feature entry point** — where the app offers **Share with SMART Link** or an equivalent label, and what supporting copy explains the encrypted link/QR.
+   - **Scope controls** — how the user selects the person/account, date range, and data categories.
+   - **Plain-language preview** — where the app shows what will be included, what will be excluded, who can open the link, and when sharing stops.
    - **Layer 0 source** — which stored field(s) become menstrual-bleeding `true` / `false`, and how the app distinguishes explicit "no bleeding" from missing data or untouched defaults.
    - **Layer 1 source** — which flow, symptom, pain, and basal-temperature facts are mapped, and which source fields are intentionally omitted.
    - **Live SHLink host** — app backend or deployable blind service such as [shlep](https://github.com/jmandel/shlep), plus the controls the host really enforces: revocation, expiry, use-limit, passcode, and access log visibility.
-   - **QR handoff widget** — one live SHLink rendered as an on-screen QR, with copy and native-share controls for the identical string. Prefer a viewer-prefixed link for broad phone-camera UX; use a bare `shlink:/...` QR only for workflows that already have SHL-aware scanners.
+   - **Handoff controls** — one live SHLink rendered through QR, copy, and native-share controls for the identical string. Prefer a viewer-prefixed link for broad phone-camera UX; use a bare `shlink:/...` QR only for workflows that already have SHL-aware scanners.
    - **Stop-sharing behavior** — how the user disables the live QR/link, and which automatic stop conditions apply, such as expiry or use-limit exhaustion.
    - **Receiver path** — reference viewer, app-hosted viewer, embedded viewer, or provider scanner.
    - **Privacy and validation evidence** — Bundle validation, QR scan/open, viewer rendering, host access without plaintext or key, and revoke/expiry/use-limit behavior when advertised.
-2. **Resolve only missing product values.** Ask for whatever is needed to fill the checklist above. Do not substitute a file download or ad hoc export for the QR-based live SHLink handoff.
-3. **Create one source snapshot.** Use one immutable, user-approved snapshot as the input to the share review screen, normalization, encryption, and QR/copy/share. Apply the selected person, date range, and category scope before normalization so the review screen and encrypted payload describe the same data.
+2. **Resolve only missing product values.** Ask for whatever is needed to fill the checklist above. Do not substitute a file download or ad hoc export for the live SHLink handoff.
+3. **Create one source snapshot.** Use one immutable, user-approved snapshot as the input to the share review screen, normalization, encryption, and handoff controls. Apply the selected person, date range, and category scope before normalization so the review screen and encrypted payload describe the same data.
 4. **Inventory the app.** Read the storage model, serializers, exports, UI, demo data, and tests before mapping. Identify stored bleeding states, flow, symptoms, pain, temperature, custom dictionaries, predictions, defaults, derived summaries, source application metadata, schema versions, and stable source identifiers.
 5. **Classify every candidate field.** Export `user-entered` data: selected, entered, verified, measured, or imported facts. Usually omit `derived` data; never export `prediction`, `default`, `configuration`, or `not-stored` data as observed facts.
 6. **Build the FHIR Bundle.** Use the [Period Tracking Bundle](StructureDefinition-period-tracking-bundle.html), include at least one Layer 0 [Menstrual Bleeding](StructureDefinition-menstrual-bleeding.html) fact, and add Layer 1 profiles only when the source has those facts.
 7. **Apply missing-data rules.** An explicit "none/no" is a fact. An untouched default or absent row is not. Never fabricate negatives from missing data.
-8. **Encrypt and present the share widget.** Package the Bundle as a SMART Health Link direct-file share, mint a live SHLink, and render it as an on-screen QR. Prefer a viewer-prefixed URL for ordinary phone-camera UX, but keep the `shlink:/...` value in the fragment after `#`. The same widget should also provide copy and native-share controls for the identical string, plus a way to stop the live QR/link or explain when it will stop automatically.
+8. **Encrypt and present the share widget.** Package the Bundle as a SMART Health Link direct-file share, mint a live SHLink, and present the identical string through QR, copy, and native-share controls when the platform supports them. Prefer a viewer-prefixed URL for ordinary phone-camera UX, but keep the `shlink:/...` value in the fragment after `#`. The same widget should also provide a way to stop the live link or explain when it will stop automatically.
 9. **Render locally.** A viewer or provider scanner decrypts client-side and computes summaries from granular facts. Do not send decrypted FHIR back to a server.
 10. **Verify end to end.** Validate the Bundle, round-trip encrypt/decrypt, scan or open the link, render the viewer, and confirm the host never receives plaintext or the key.
 
