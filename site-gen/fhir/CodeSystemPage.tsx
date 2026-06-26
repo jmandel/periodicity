@@ -29,7 +29,7 @@ export function CodeSystemPage({ r, data, concepts }: { r: ResourceRow; data: an
         badges={<><StatusBadge status={r.Status} /><Badge tone="luteal" variant="soft">{concepts.length} concepts</Badge>{data.caseSensitive && <Badge tone="neutral" variant="outline">case-sensitive</Badge>}</>}
         lead={r.Description}
         meta={[
-          ['Official URL', <CopyValue value={r.Url} label="official URL" />],
+          ['Official URL', <CopyValue value={r.Url} label="official URL" truncate="middle" />],
           ['Computable', <CopyValue value={r.Name} label="computable name" />],
           ['Status', `${r.Status} · v${r.Version}`],
           ['Content', data.content || 'complete'],

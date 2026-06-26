@@ -17,7 +17,7 @@ export function ValueSetPage({ r, data, resolve, expansion }: { r: ResourceRow; 
         badges={<><StatusBadge status={r.Status} /><Badge tone="neutral" variant="outline">{(expansion.length || includes.reduce((n, i) => n + (i.concept?.length || 0), 0))} codes</Badge></>}
         lead={r.Description}
         meta={[
-          ['Official URL', <CopyValue value={r.Url} label="official URL" />],
+          ['Official URL', <CopyValue value={r.Url} label="official URL" truncate="middle" />],
           ['Computable', <CopyValue value={r.Name} label="computable name" />],
           ['Status', `${r.Status} · v${r.Version}`],
         ]}

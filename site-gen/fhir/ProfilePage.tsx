@@ -114,7 +114,7 @@ export function ProfilePage({
         badges={<><StatusBadge status={r.Status} /><Badge tone="neutral" variant="outline">{r.derivation === 'constraint' ? 'Constraint' : r.derivation || 'Profile'}</Badge></>}
         lead={r.Description}
         meta={[
-          ['Official URL', <CopyValue value={r.Url} label="official URL" />],
+          ['Official URL', <CopyValue value={r.Url} label="official URL" truncate="middle" />],
           ['Computable', <CopyValue value={r.Name} label="computable name" />],
           ['Status', `${r.Status} · v${r.Version}`],
           ['Base', <Tag tone="luteal" href={resolve(rootType!, r.base)}>{baseName}</Tag>],

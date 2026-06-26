@@ -387,6 +387,20 @@ img { max-width: 100%; }
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--ovulatory) 22%, transparent);
   transform: scale(.96);
 }
+/* Middle-truncate: head ellipses, final path segment (the id) stays whole.
+   Wide box → full URL on one line; narrow box → "host/…/id". */
+.copy-value-code--midtrunc {
+  display: flex; align-items: baseline;
+  white-space: nowrap; overflow: hidden; word-break: normal; overflow-wrap: normal;
+}
+.copy-value-code--midtrunc .cv-head {
+  flex: 0 1 auto; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--ink-500);
+}
+.copy-value-code--midtrunc .cv-tail {
+  flex: 0 0 auto; white-space: nowrap; color: var(--ink-900);
+}
 .copy-value--codeblock .copy-value-code {
   width: 100%;
   box-sizing: border-box;
@@ -404,8 +418,12 @@ img { max-width: 100%; }
 }
 .copy-value--codeblock .copy-value-button {
   position: absolute;
-  top: 8px;
-  right: 8px;
+  /* Sized to sit inside a single code line and centred on it; on multi-line
+     blocks this keeps the button tucked into the top-right corner. */
+  top: 2px;
+  right: 4px;
+  width: 26px;
+  height: 26px;
   background: color-mix(in srgb, var(--paper-card) 92%, transparent);
   backdrop-filter: blur(2px);
 }
