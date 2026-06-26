@@ -2,6 +2,8 @@ import React from 'react';
 import { Tag } from '../ds/Tag.jsx';
 import type { ResourceRow } from '../core/db';
 
+type ProfileGroup = { label: string; ids: string[] };
+
 const GROUPS: { title: string; types: string[]; accent: string; examples?: boolean }[] = [
   { title: 'Profiles', types: ['StructureDefinition'], accent: 'var(--menstrual)' },
   { title: 'Value sets', types: ['ValueSet'], accent: 'var(--follicular)' },
@@ -18,12 +20,24 @@ const shortOf = (d?: string) => {
 export function ArtifactsPage({
   resources, page, isExample = () => false,
   profileGroupLabel = () => null,
+  profileGroups = [],
 }: {
   resources: ResourceRow[];
   page: (r: ResourceRow) => string;
   isExample?: (r: ResourceRow) => boolean;
   profileGroupLabel?: (id: string) => string | null;
+  profileGroups?: ProfileGroup[];
 }) {
+  const profileGroupRank = new Map<string, number>();
+  for (const [i, group] of profileGroups.entries()) {
+    for (const id of group.ids) profileGroupRank.set(id, i);
+  }
+  const orderRows = (rows: ResourceRow[], title: string) => {
+    if (title !== 'Profiles' || !profileGroups.length) return rows;
+    return [...rows].sort((a, b) =>
+      (profileGroupRank.get(a.Id) ?? 100000) - (profileGroupRank.get(b.Id) ?? 100000)
+    );
+  };
   const detail = (r: ResourceRow) => (
     <div className="art-detail">
       {r.Description || <em>No description.</em>}
@@ -44,7 +58,7 @@ export function ArtifactsPage({
       </section>
 
       {GROUPS.map((g) => {
-        const rows = resources.filter((r) => g.examples ? isExample(r) : g.types.includes(r.Type));
+        const rows = orderRows(resources.filter((r) => g.examples ? isExample(r) : g.types.includes(r.Type)), g.title);
         if (!rows.length) return null;
         return (
           <section key={g.title} id={g.title.toLowerCase().replace(/\s+/g, '-')} style={{ marginTop: 30 }}>

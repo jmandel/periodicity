@@ -312,7 +312,7 @@ for (const p of db.pages()) {
 }
 
 // ---- artifacts index ----
-emit('artifacts.html', <ArtifactsPage resources={artifactResources()} page={page} isExample={isExampleRow} profileGroupLabel={profileGroupLabel} />, {
+emit('artifacts.html', <ArtifactsPage resources={artifactResources()} page={page} isExample={isExampleRow} profileGroupLabel={profileGroupLabel} profileGroups={configuredProfileGroups} />, {
   title: 'Artifacts', navActive: artifactsNav,
   toc: [{ id: 'profiles', label: 'Profiles' }, { id: 'value-sets', label: 'Value sets' }, { id: 'code-systems', label: 'Code systems' }, { id: 'examples', label: 'Examples' }],
   crumbs: [{ label: 'Home', href: 'index.html' }, { label: 'Artifacts' }],
