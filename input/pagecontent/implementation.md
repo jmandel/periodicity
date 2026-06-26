@@ -18,13 +18,14 @@ This restraint is the point: the data is sensitive, and a clinician must be able
    - **Ciphertext host** — app backend or deployable blind service such as [shlep](https://github.com/jmandel/shlep)? Frame this as the controls the product can honestly promise: revocation, expiry, use-limit, passcode, and access log visibility.
    - **Viewer** — use the reference viewer source, host your own copy, embed your own, or integrate scanning into a provider app?
    - **Sensitive scope** — which categories, such as sexual activity, mental-health, or fertility signs, are included versus held back?
-3. **Inventory the app.** Read the storage model, serializers, exports, UI, demo data, and tests before mapping. Identify stored bleeding states, flow, symptoms, pain, temperature, custom dictionaries, predictions, defaults, and derived summaries.
-4. **Classify every candidate field.** Export `user-entered` data: selected, entered, verified, measured, or imported facts. Usually omit `derived` data; never export `prediction`, `default`, `configuration`, or `not-stored` data as observed facts.
-5. **Build the FHIR Bundle.** Use the [Period Tracking Bundle](StructureDefinition-period-tracking-bundle.html), include at least one Layer 0 [Menstrual Bleeding](StructureDefinition-menstrual-bleeding.html) fact, and add Layer 1 profiles only when the source has those facts.
-6. **Apply missing-data rules.** An explicit "none/no" is a fact. An untouched default or absent row is not. Never fabricate negatives from missing data.
-7. **Encrypt and share.** Package the Bundle as a SMART Health Link direct-file share. Prefer a viewer-prefixed URL for ordinary phone-camera UX, but keep the `shlink:/...` value in the fragment after `#`.
-8. **Render locally.** A viewer or provider scanner decrypts client-side and computes summaries from granular facts. Do not send decrypted FHIR back to a server.
-9. **Verify end to end.** Validate the Bundle, round-trip encrypt/decrypt, scan or open the link, render the viewer, and confirm the host never receives plaintext or the key.
+3. **Create one source snapshot.** Use one immutable, user-approved snapshot as the input to preview, normalization, encryption, and QR/copy/share. Apply the selected person, date range, and category scope before normalization so the preview and encrypted payload describe the same data.
+4. **Inventory the app.** Read the storage model, serializers, exports, UI, demo data, and tests before mapping. Identify stored bleeding states, flow, symptoms, pain, temperature, custom dictionaries, predictions, defaults, derived summaries, source application metadata, schema versions, and stable source identifiers.
+5. **Classify every candidate field.** Export `user-entered` data: selected, entered, verified, measured, or imported facts. Usually omit `derived` data; never export `prediction`, `default`, `configuration`, or `not-stored` data as observed facts.
+6. **Build the FHIR Bundle.** Use the [Period Tracking Bundle](StructureDefinition-period-tracking-bundle.html), include at least one Layer 0 [Menstrual Bleeding](StructureDefinition-menstrual-bleeding.html) fact, and add Layer 1 profiles only when the source has those facts.
+7. **Apply missing-data rules.** An explicit "none/no" is a fact. An untouched default or absent row is not. Never fabricate negatives from missing data.
+8. **Encrypt and share.** Package the Bundle as a SMART Health Link direct-file share. Prefer a viewer-prefixed URL for ordinary phone-camera UX, but keep the `shlink:/...` value in the fragment after `#`.
+9. **Render locally.** A viewer or provider scanner decrypts client-side and computes summaries from granular facts. Do not send decrypted FHIR back to a server.
+10. **Verify end to end.** Validate the Bundle, round-trip encrypt/decrypt, scan or open the link, render the viewer, and confirm the host never receives plaintext or the key.
 
 ## FHIR mapping
 
@@ -36,6 +37,8 @@ The minimal compatible export is a FHIR `collection` Bundle containing at least 
 - `Observation.valueBoolean` = `true` or `false`
 - `Observation.effectiveDateTime` = the source date or timestamp
 - `Observation.status` = `final`
+
+Patient and Device resources are optional. Include them only when the user and product scope support it. When source application identity is useful and not over-identifying, a Device resource can preserve source app, version, schema, or stable source identifiers for traceability.
 
 Layer 1 facts use the matching concrete profiles when they fit:
 
@@ -125,6 +128,8 @@ Minimum verification:
 - Bundle validates against this IG.
 - Every exported Observation comes from user-entered, selected, verified, measured, or imported data.
 - No prediction or untouched default is exported as an observed fact.
+- The preview and encrypted Bundle are produced from the same user-approved snapshot and date/category scope.
 - The encrypted SHLink opens from QR and copy/share paths.
 - The host cannot see plaintext FHIR or the decryption key.
 - The viewer renders from the same granular facts in the Bundle.
+- For this repository, `bun scripts/build-sitegen-site.ts` passes before publishing changed IG content.
