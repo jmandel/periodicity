@@ -154,9 +154,17 @@ function ElementRow({ e, resolve }: { e: El; resolve: ResolveType }) {
   );
 }
 
-/** Pre-compute the three element views from a StructureDefinition. */
-export function elementViews(snapshot: El[] = [], differential: El[] = [], rootType = '') {
+/** Pre-compute the three element views from a StructureDefinition.
+ *
+ * `differential` is the current profile's authored differential and drives the
+ * Differential tab. `authoredChain` is parent-first local IG differential
+ * metadata, ending with the current profile; it drives Key elements and row
+ * text so derived profiles inherit the guide-specific language from local base
+ * profiles instead of falling back to generic base FHIR comments.
+ */
+export function elementViews(snapshot: El[] = [], differential: El[] = [], rootType = '', authoredChain: El[] = differential) {
   const diffByPath = new Map(differential.map((e) => [e.path, e]));
+  const authoredByPath = new Map(authoredChain.map((e) => [e.path, e]));
   const diffPaths = new Set(diffByPath.keys());
   const all = snapshot.filter((e) => e.path !== rootType);
   const byPath = new Map(all.map((e) => [e.path, e]));
@@ -166,8 +174,8 @@ export function elementViews(snapshot: El[] = [], differential: El[] = [], rootT
   const isHidden = (e: El) => rootType === 'Observation' && hiddenObservationKeys.has(localName(e.path));
   const topLevel = (e: El) => depthFromRoot(e.path) === 1;
   const hasProjectBinding = (e: El) => e.binding?.valueSet?.startsWith('https://cycle.fhir.me/');
-  const constrainedInDifferential = (e: El) => {
-    const d = diffByPath.get(e.path);
+  const constrainedInAuthoredChain = (e: El) => {
+    const d = authoredByPath.get(e.path);
     if (!d) return false;
     return Boolean(
       d.mustSupport
@@ -193,7 +201,7 @@ export function elementViews(snapshot: El[] = [], differential: El[] = [], rootT
   };
 
   const localize = (e: El) => {
-    const d = diffByPath.get(e.path);
+    const d = authoredByPath.get(e.path);
     if (!d) return e;
     return {
       ...e,
@@ -209,7 +217,7 @@ export function elementViews(snapshot: El[] = [], differential: El[] = [], rootT
   const keyPaths = new Set(all
     .filter((e) => !isHidden(e))
     .filter((e) => {
-      if (constrainedInDifferential(e)) return true;
+      if (constrainedInAuthoredChain(e)) return true;
       if (topLevel(e) && e.mustSupport) return true;
       if (topLevel(e) && fixedValue(e)) return true;
       if (topLevel(e) && (e.min ?? 0) > 0 && requiredTopLevel.has(localName(e.path))) return true;

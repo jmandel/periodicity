@@ -104,6 +104,30 @@ function exampleResources(): db.ResourceRow[] {
   return artifactResources().filter(isExampleRow);
 }
 const structureDefinitions = artifactResources('StructureDefinition');
+const structureDefinitionRowsByUrl = new Map(structureDefinitions.filter((r) => r.Url).map((r) => [r.Url!, r]));
+const structureDefinitionDataByUrl = new Map<string, any>();
+function structureDefinitionData(r: db.ResourceRow): any {
+  if (r.Url && structureDefinitionDataByUrl.has(r.Url)) return structureDefinitionDataByUrl.get(r.Url);
+  const data = db.parse(r);
+  if (r.Url) structureDefinitionDataByUrl.set(r.Url, data);
+  return data;
+}
+function localAuthoredElementChain(data: any): any[] {
+  const chain: any[] = [];
+  const seen = new Set<string>();
+  const visit = (sd: any) => {
+    const url = sd?.url;
+    if (url) {
+      if (seen.has(url)) return;
+      seen.add(url);
+    }
+    const baseRow = sd?.baseDefinition ? structureDefinitionRowsByUrl.get(sd.baseDefinition) : undefined;
+    if (baseRow) visit(structureDefinitionData(baseRow));
+    chain.push(...(sd?.differential?.element || []));
+  };
+  visit(data);
+  return chain;
+}
 const configuredProfileGroups = project.profileGroups || [];
 function profileGroupLabel(id: string): string | null {
   return configuredProfileGroups.find((g) => g.ids.includes(id))?.label || null;
@@ -147,7 +171,7 @@ function profileRootRequirements(data: any, rootType: string): ProfileRequiremen
 const derivedProfiles = new Map<string, string[]>();
 for (const r of structureDefinitions) {
   if (!r.Url) continue;
-  const data = db.parse(r);
+  const data = structureDefinitionData(r);
   const base = data.baseDefinition;
   if (!base || !byUrl.has(base)) continue;
   derivedProfiles.set(base, [...(derivedProfiles.get(base) || []), r.Url]);
@@ -298,12 +322,12 @@ emit('artifacts.html', <ArtifactsPage resources={artifactResources()} page={page
 // ---- profile pages ----
 let nProfiles = 0;
 for (const r of artifactResources('StructureDefinition')) {
-  const data = db.parse(r);
+  const data = structureDefinitionData(r);
   const rootType = r.sdType || data.type;
   const requirements = profileRootRequirements(data, rootType);
   const examples = profileExamples(r.Url || '');
   const inlineExample = examples.some((e) => e.direct && e.preview);
-  emit(page(r), <ProfilePage r={r} data={data} resolve={resolve} requirements={requirements} examples={examples} />, {
+  emit(page(r), <ProfilePage r={r} data={data} resolve={resolve} requirements={requirements} examples={examples} authoredElementChain={localAuthoredElementChain(data)} />, {
     title: r.Title || r.Name || r.Id,
     navActive: artifactsNav,
     crumbs: [{ label: 'Artifacts', href: 'artifacts.html' }, { label: 'Profiles', href: 'artifacts.html#profiles' }, { label: r.Title || r.Id }],
