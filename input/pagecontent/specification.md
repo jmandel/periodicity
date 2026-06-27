@@ -37,6 +37,14 @@ These profiles are the exchange surface. The table below combines the adoption l
     </tr>
   </thead>
   <tbody>
+    <tr class="profile-layer-support">
+      <th scope="row" class="profile-layer-label">
+        <strong>Base shape</strong>
+      </th>
+      <td><a href="StructureDefinition-period-tracking-fact.html">Period Tracking Fact</a></td>
+      <td>The abstract Observation shape inherited by concrete fact profiles.</td>
+      <td><code>status=final</code>, <code>effectiveDateTime</code>, optional <code>subject</code>, optional <code>device</code>, and exactly one <code>value[x]</code>.</td>
+    </tr>
     <tr class="profile-layer-core">
       <th scope="row" class="profile-layer-label">
         <strong>Layer 0</strong>
@@ -77,14 +85,6 @@ These profiles are the exchange surface. The table below combines the adoption l
       <td><a href="StructureDefinition-period-tracking-bundle.html">Period Tracking Bundle</a></td>
       <td>A FHIR <code>collection</code> Bundle scoped to one person.</td>
       <td>Contains at least one Layer 0 fact. Patient and Device resources are optional.</td>
-    </tr>
-    <tr class="profile-layer-support">
-      <th scope="row" class="profile-layer-label">
-        <strong>Base shape</strong>
-      </th>
-      <td><a href="StructureDefinition-period-tracking-fact.html">Period Tracking Fact</a></td>
-      <td>The abstract Observation shape inherited by concrete fact profiles.</td>
-      <td><code>status=final</code>, <code>effectiveDateTime</code>, optional <code>subject</code>, optional <code>device</code>, and exactly one <code>value[x]</code>.</td>
     </tr>
   </tbody>
 </table>
