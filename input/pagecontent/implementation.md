@@ -6,7 +6,7 @@ The [Specification](specification.html) is the source of truth for profiles, cod
 
 ## Operating rule: drive from the app's real data
 
-Map only what the app actually stores. Read the app's data model, storage, exports, UI, and tests before deciding what to map. Do not invent fields the app does not have, and do not emit app predictions, derived caches, or unedited defaults as clinical facts. When normalization is uncertain, keep the source value in app-controlled terminology or omit the normalized fact rather than guessing.
+Map only what the app actually stores. Read the app's data model, storage, exports, UI, and tests before deciding what to map. Do not invent fields the app does not have, and do not emit app predictions, derived caches, or unedited defaults as clinical facts. When normalization is uncertain, omit the normalized fact rather than guessing.
 
 This restraint is the point: the data is sensitive, and a clinician must be able to trust that every fact reflects something the user actually entered, selected, measured, imported, or verified.
 
@@ -38,7 +38,7 @@ The preview can be brief. For example: "This SMART Link includes bleeding days, 
    - **Privacy and validation evidence** — Bundle validation, QR scan/open, viewer rendering, host access without plaintext or key, and revoke/expiry/use-limit behavior when advertised.
 2. **Resolve only missing product values.** Ask for whatever is needed to fill the checklist above. Do not substitute a file download or ad hoc export for the live SHLink handoff.
 3. **Create one source snapshot.** Use one immutable, user-approved snapshot as the input to the share review screen, normalization, encryption, and handoff controls. Apply the selected person, date range, and category scope before normalization so the review screen and encrypted payload describe the same data.
-4. **Inventory the app.** Read the storage model, serializers, exports, UI, demo data, and tests before mapping. Identify stored bleeding states, flow, symptoms, pain, temperature, custom dictionaries, predictions, defaults, derived summaries, source application metadata, schema versions, and stable source identifiers.
+4. **Inventory the app.** Read the storage model, serializers, exports, UI, demo data, and tests before mapping. Identify stored bleeding states, flow, symptoms, pain, temperature, predictions, defaults, derived summaries, source application metadata, schema versions, and stable source identifiers.
 5. **Classify every candidate field.** Export `user-entered` data: selected, entered, verified, measured, or imported facts. Usually omit `derived` data; never export `prediction`, `default`, `configuration`, or `not-stored` data as observed facts.
 6. **Build the FHIR Bundle.** Use the [Period Tracking Bundle](StructureDefinition-period-tracking-bundle.html), include at least one Layer 0 [Menstrual Bleeding](StructureDefinition-menstrual-bleeding.html) fact, and add Layer 1 profiles only when the source has those facts.
 7. **Apply missing-data rules.** An explicit "none/no" is a fact. An untouched default or absent row is not. Never fabricate negatives from missing data.
@@ -64,11 +64,13 @@ Layer 1 facts use the matching concrete profiles when they fit:
 | Source fact | Profile | When to emit |
 |---|---|---|
 | Flow intensity | [Menstrual Flow](StructureDefinition-menstrual-flow.html) | The app stores a source flow category. Also emit the Layer 0 bleeding boolean. |
-| Symptom | [Symptom](StructureDefinition-symptom.html) | The app stores a symptom selection, finding, or app-native symptom code. |
+| Symptom | [Symptom](StructureDefinition-symptom.html) | The app stores a symptom selection or finding that can be represented exactly. |
 | Numeric pain | [Numeric Pain Severity](StructureDefinition-numeric-pain-severity.html) | The app stores a true 0-10 numeric pain score. |
 | Basal body temperature | [Basal Body Temperature](StructureDefinition-basal-body-temperature.html) | The app stores a temperature measurement identified as basal. |
 
-Use standard codes when the source meaning is exact enough. If it is not, use a stable app-native coding and/or `CodeableConcept.text` rather than a close-but-wrong standard concept. See the [layered fact model](specification.html#layered-fact-model) and the generated profile pages for the formal constraints.
+Common pain-like app tags such as cramps, backache, headache, nausea, breast tenderness, migraine, stomach ache, and ovulation pain are symptom facts when the source meaning matches an exact SNOMED CT concept. Ordinal labels such as mild, severe, or unbearable are not 0-10 numeric scores; do not map them to Numeric Pain Severity unless the source actually stores a numeric 0-10 value.
+
+Use standard codes when the source meaning is exact enough. If it is not, omit that normalized fact rather than using a close-but-wrong standard concept. See the [profiles and layers](specification.html#profiles-and-layers) section and the generated profile pages for the formal constraints.
 
 ## Sharing and hosting
 

@@ -11,6 +11,7 @@
  *   6. Derivation parameters are shown, so every number is auditable.
  */
 import React from "react";
+import { SYMPTOM_LABELS } from "../shared/codes.mjs";
 
 const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const toDate = (s) => new Date(s + "T00:00:00Z");
@@ -94,7 +95,7 @@ function LayerPanels({ layers }) {
   if (layers.symptoms.present) panels.push(
     <div key="sym" className="v2-panel">
       <h4>Symptoms <span className="v2-panel-tag">layer</span></h4>
-      <p>{Object.entries(layers.symptoms.catalog).map(([k, n]) => <span key={k} className="v2-tag">{k} <b>{n}</b></span>)}</p>
+      <p>{Object.entries(layers.symptoms.catalog).map(([k, n]) => <span key={k} className="v2-tag">{SYMPTOM_LABELS[k] || k} <b>{n}</b></span>)}</p>
     </div>);
   if (layers.bbt.present) panels.push(
     <div key="bbt" className="v2-panel">

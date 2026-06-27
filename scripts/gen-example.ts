@@ -4,15 +4,15 @@
  * Turns the deterministic copper-IUD case (viewer-src/shared/dataset.mjs) into
  * new-model FHIR R4 resources, assembled into a PeriodTrackingBundle that
  * conforms to the IG's profiles. The encoding emits the Layer 0 boolean
- * bleeding core first, then Layer 1 structured facts. Use standard codes only where they match the
- * synthetic source meaning; several values use the app-native escape hatch. Writes
+ * bleeding core first, then Layer 1 structured facts using exact standard
+ * concepts from the IG's starter terminology. Writes
  * the Bundle and standalone profile examples under dist/ for local validation/demo use; generated sample data is
  * not committed as IG input.
  *
  * Run ahead of the publisher:  bun scripts/gen-example.ts
  */
 import { buildDataset, IUD_DATE } from "../viewer-src/shared/dataset.mjs";
-import { SYS, LOINC, SCT, FLOW_CODE_BY_LEVEL, SYMPTOM_DEFS, APP_SYMPTOM_DEFS } from "../viewer-src/shared/codes.mjs";
+import { SYS, LOINC, SCT, FLOW_CODE_BY_LEVEL, SYMPTOM_DEFS } from "../viewer-src/shared/codes.mjs";
 import { mkdir } from "node:fs/promises";
 
 const BASE = "https://example.org/fhir";
@@ -74,18 +74,6 @@ add({
   type: { text: "Period-tracking application" }, version: [{ value: "synthetic" }],
 });
 
-// --- app-native symptom CodeSystem (the escape hatch for source labels without exact standard codes) ---
-add({
-  resourceType: "CodeSystem", id: "example-app-symptoms",
-  url: SYS.appExample, version: "1", name: "ExampleAppSymptoms", title: "Example App Symptoms",
-  description: "An illustrative app-native symptom dictionary for the worked example, demonstrating the escape hatch for source terms with no exact standard code.",
-  status: "active", experimental: true, content: "complete", caseSensitive: true,
-  concept: [
-    { code: "low-mood", display: "Low mood", definition: "A source symptom label retained in app-native terminology because no active standard concept was accepted as exact." },
-    { code: "pulling-sensation", display: "Pulling sensation", definition: "A user-defined symptom retained in its source vocabulary because no reviewed standard mapping was established." },
-  ],
-});
-
 // --- IUD insertion event (the clinical context of this case) ---
 add({
   resourceType: "Procedure", id: "iud-insertion", status: "completed",
@@ -97,7 +85,6 @@ add({
 const daily = buildDataset();
 const slug = (d: string) => d.replace(/-/g, "");
 let factCount = 0;
-let appNativeDay: string | null = null;
 
 for (const d of daily) {
   const s = slug(d.date);
@@ -110,21 +97,8 @@ for (const d of daily) {
   if (d.symptoms) for (const sd of SYMPTOM_DEFS) {
     if (d.symptoms[sd.key] > 0) mk("symptom", `sym-${sd.key.toLowerCase()}-${s}`, cc(SYS.cycle, "symptom", "Symptom"), { valueCodeableConcept: cc(SYS.sct, sd.sct) });
   }
-  if (d.symptoms) for (const sd of APP_SYMPTOM_DEFS) {
-    if (d.symptoms[sd.key] > 0) mk("symptom", `sym-${sd.key.toLowerCase()}-${s}`, cc(SYS.cycle, "symptom", "Symptom"), {
-      valueCodeableConcept: { coding: [{ system: SYS.appExample, code: sd.code, display: sd.display, userSelected: true }], text: sd.display },
-    });
-  }
   if (d.bbt != null) mk("bbt", `bbt-${s}`, cc(SYS.loinc, LOINC.bodyTemp, "Body temperature"), qty(d.bbt, "Cel", "degree Celsius"),
     { category: VITALS, effective: `${d.date}T06:45:00-05:00` });
-
-  // one additional app-native fact (the documented escape hatch), on the first IMB day
-  if (!appNativeDay && d.intermenstrual) {
-    appNativeDay = d.date;
-    mk("symptom", `custom-${s}`, cc(SYS.cycle, "symptom", "Symptom"), {
-      valueCodeableConcept: { coding: [{ system: SYS.appExample, code: "pulling-sensation", display: "Pulling sensation", userSelected: true }], text: "Pulling sensation" },
-    });
-  }
 }
 
 // --- assemble the bundle ---
@@ -143,4 +117,4 @@ for (const [kind, resource] of Object.entries(exampleByKind)) {
   await Bun.write(`${outDir}/Observation-${exampleIds[kind as keyof typeof exampleIds]}.json`, JSON.stringify(resource, null, 2));
 }
 console.log(`wrote ${out}`);
-console.log(`  entries=${entries.length} facts=${factCount} appNativeDay=${appNativeDay}`);
+console.log(`  entries=${entries.length} facts=${factCount}`);

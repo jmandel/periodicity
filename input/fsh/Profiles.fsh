@@ -23,7 +23,7 @@ Description: "A self-contained FHIR R4 collection Bundle for transporting granul
 * timestamp ^comment = ""
 * entry 1..* MS
 * entry ^short = "Resources included in the export"
-* entry ^definition = "The Bundle entries carrying the period-tracking Observations and any optional Patient, Device, or app-native CodeSystem resources included by the producer."
+* entry ^definition = "The Bundle entries carrying the period-tracking Observations and any optional Patient or Device resources included by the producer."
 * entry ^comment = "The Bundle must contain at least one Layer 0 menstrual bleeding Observation. Other resources are included only when they support the selected share."
 * entry.fullUrl 1..1 MS
 * entry.fullUrl ^short = "Stable intra-Bundle reference URL"
@@ -47,7 +47,7 @@ Description: "Abstract base profile for one independently meaningful fact entere
 * code 1..1 MS
 * code ^short = "Period-tracking fact type"
 * code ^definition = "Identifies the kind of fact represented by this Observation, such as menstrual bleeding, menstrual flow, symptom, numeric pain severity, or basal body temperature."
-* code ^comment = "Concrete profiles fix this code. If no concrete profile fits an app-specific fact, use the base Period Tracking Fact profile with a stable app-native code."
+* code ^comment = "Concrete profiles fix this code. Use this base profile only when this guide defines no more specific fact profile."
 * subject 0..1 MS
 * subject only Reference(Patient)
 * subject ^short = "Optional person reference"
@@ -112,36 +112,36 @@ Profile: Symptom
 Parent: PeriodTrackingFact
 Id: symptom
 Title: "Symptom"
-Description: "Layer 1 optional symptom fact. The Observation code identifies the fact as a symptom report; the value identifies the specific symptom using an exact standard concept when available or an app-native concept when not."
+Description: "Layer 1 optional symptom fact. The Observation code identifies the fact as a symptom report; the value identifies the specific symptom using an exact standard concept when available."
 * code = $CycleCS#symptom "Symptom"
 * code ^short = "Symptom fact"
 * code ^definition = "Identifies this Observation as a Layer 1 symptom fact."
 * code ^comment = ""
 * value[x] only CodeableConcept
 * value[x] ^short = "Specific symptom"
-* value[x] ^definition = "The specific symptom represented by the source application, using an exact standard concept when available or an app-native CodeableConcept when not."
+* value[x] ^definition = "The specific symptom represented by the source application, using an exact standard concept when available."
 * value[x] ^comment = "The preferred ValueSet is only a starter set. Do not map a source symptom to a standard concept unless the meaning is exact."
 * valueCodeableConcept 1..1 MS
 * valueCodeableConcept ^short = "Specific symptom"
-* valueCodeableConcept ^definition = "The specific symptom represented by the source application, using an exact standard concept when available or an app-native CodeableConcept when not."
+* valueCodeableConcept ^definition = "The specific symptom represented by the source application, using an exact standard concept when available."
 * valueCodeableConcept from CommonTrackerSymptomsVS (preferred)
 
 Profile: NumericPainSeverity
 Parent: PeriodTrackingFact
 Id: numeric-pain-severity
 Title: "Numeric Pain Severity"
-Description: "Layer 1 optional numeric pain fact for a source 0-10 patient-reported pain score. Do not map ordinal labels such as mild, severe, or unbearable into this profile unless the source actually stores a numeric 0-10 rating."
+Description: "Layer 1 optional numeric pain fact for a source 0-10 patient-reported pain score. Use this profile only when the source stores a numeric 0-10 rating."
 * code = $LNC#72514-3 "Pain severity - 0-10 verbal numeric rating [Score] - Reported"
 * code ^short = "Numeric pain severity fact"
 * code ^definition = "Identifies this Observation as a patient-reported 0-10 numeric pain severity fact."
 * code ^comment = ""
 * value[x] only Quantity
 * value[x] ^short = "0-10 pain score"
-* value[x] ^definition = "The numeric 0-10 pain score recorded by the source. Do not map ordinal labels into this profile unless the source actually stores a numeric 0-10 rating."
-* value[x] ^comment = "Use UCUM code '{score}' for the quantity unit. A source label such as mild, severe, or unbearable belongs in a different app-native or future ordinal profile, not here."
+* value[x] ^definition = "The numeric 0-10 pain score recorded by the source. Use this profile only when the source stores a numeric 0-10 rating."
+* value[x] ^comment = "Use UCUM code '{score}' for the quantity unit."
 * valueQuantity 1..1 MS
 * valueQuantity ^short = "0-10 pain score"
-* valueQuantity ^definition = "The numeric 0-10 pain score recorded by the source. Do not map ordinal labels into this profile unless the source actually stores a numeric 0-10 rating."
+* valueQuantity ^definition = "The numeric 0-10 pain score recorded by the source. Use this profile only when the source stores a numeric 0-10 rating."
 
 Profile: BasalBodyTemperature
 Parent: PeriodTrackingFact

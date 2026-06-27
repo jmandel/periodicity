@@ -16,13 +16,11 @@ rectangle "**Layer 0**\nMenstrualBleeding\nrequired: at least one boolean fact" 
 rectangle "**Layer 1**\nFlow / Symptom / Pain / BBT\noptional concrete facts" as Layers
 rectangle "Patient\noptional identity, at most one" as Pat
 rectangle "Device\noptional source app/device" as Dev
-rectangle "CodeSystem\noptional app-native dictionary" as CS
 
 Bundle --> Bleed : contains
 Bundle --> Layers : may contain
 Bundle --> Pat : may contain
 Bundle --> Dev : may contain
-Bundle --> CS : may contain
 
 Bleed -[hidden]down- Layers
 Pat -[hidden]down- Dev

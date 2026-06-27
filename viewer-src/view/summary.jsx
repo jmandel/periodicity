@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { SYMPTOM_LABELS } from "../shared/codes.mjs";
 
 /* ============================================================================
    Menstrual Health Summary — clinician-facing viewer (render layer)
@@ -25,7 +26,6 @@ const FLOW = [
   { k: 4, label: "Heavy", color: "#9E2418", border: "#8A1F14" },
 ];
 const PAIN_BASE = "#2B4A7A";
-const SYM_LABELS = { irritability: "Irritability", lowMood: "Low mood", headache: "Headache", bloating: "Bloating", fatigue: "Fatigue" };
 const MAXDAY = 40;
 const gridStyle = () => ({ gridTemplateColumns: `repeat(${MAXDAY}, minmax(0,1fr))` });
 
@@ -323,7 +323,13 @@ function SymptomGrid({ data }) {
   const { byDate, ctx } = data;
   const offsets = [-7, -6, -5, -4, -3, -2, -1, 1, 2, 3];
   const onsets = ctx.episodeStarts;
-  const syms = ["irritability", "lowMood", "headache", "bloating", "fatigue"];
+  const present = new Set();
+  for (const rec of Object.values(byDate)) for (const s of Object.keys(rec.symptoms || {})) present.add(s);
+  const syms = [
+    "menstrualCramp", "backache", "headache", "migraine", "stomachAche", "nausea",
+    "breastTenderness", "ovulationPain", "irritability", "lowMood", "bloating", "fatigue",
+  ].filter((s) => present.has(s));
+  if (!syms.length) return null;
   const grid = {}; const colN = {};
   for (const o of offsets) colN[o] = 0;
   for (const s of syms) grid[s] = {};
@@ -343,12 +349,12 @@ function SymptomGrid({ data }) {
       </div>
       {syms.map((s) => (
         <div className="mh-heat-row" key={s}>
-          <span className="mh-heat-rowcap">{SYM_LABELS[s]}</span>
+          <span className="mh-heat-rowcap">{SYMPTOM_LABELS[s] || s}</span>
           {offsets.map((o) => {
             const v = cell(s, o); const has = v != null; const op = has ? 0.1 + (v / 3) * 0.82 : 0;
             return (<span key={o} className={"mh-heat-cell" + (o > 0 ? " is-menses" : "") + (has ? "" : " is-empty")}
               style={has ? { background: `rgba(43,74,122,${op})` } : undefined}
-              title={has ? `${SYM_LABELS[s]} · day ${o} · ${v.toFixed(1)}/3` : "no data"}>{has ? (v >= 2.2 ? "●" : v >= 1.2 ? "◐" : "○") : "·"}</span>);
+              title={has ? `${SYMPTOM_LABELS[s] || s} · day ${o} · ${v.toFixed(1)}/3` : "no data"}>{has ? (v >= 2.2 ? "●" : v >= 1.2 ? "◐" : "○") : "·"}</span>);
           })}
         </div>
       ))}
@@ -430,7 +436,7 @@ function DayDetail({ rec, date, cycles, onClose }) {
           {rec?.functionalLimit ? <Row k="Function" v="activity limited" /> : null}
           {rec?.postcoital ? <Row k="After sex" v="spotting" /> : null}
           {rec?.sex ? <Row k="Sexual activity" v="yes" /> : null}
-          {rec?.symptoms ? <Row k="Symptoms" v={Object.entries(rec.symptoms).map(([k, v]) => `${SYM_LABELS[k] || k} ${v}/3`).join(", ")} /> : null}
+          {rec?.symptoms ? <Row k="Symptoms" v={Object.entries(rec.symptoms).map(([k, v]) => `${SYMPTOM_LABELS[k] || k} ${v}/3`).join(", ")} /> : null}
           {rec?.bbt ? <Row k="Basal temp" v={`${rec.bbt} °C`} /> : null}
           {rec?.mucus ? <Row k="Cervical mucus" v={String(rec.mucus)} /> : null}
           {rec?.lh ? <Row k="LH test" v="positive" /> : null}

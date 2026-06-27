@@ -9,7 +9,15 @@ import { Liquid } from 'liquidjs';
 
 export type IncludeRegistry = Record<string, (ig: any) => string>;
 export type SqlExecutor = (query: string) => Record<string, any>[];
-type SqlColumn = { source?: string; name?: string; title?: string; type?: string; target?: string; system?: string; display?: string; version?: string };
+type SqlColumn = { source?: string; name?: string; title?: string; type?: string; target?: string; system?: string; display?: string; version?: string; width?: string; minWidth?: string };
+type SqlColumnStats = {
+  codeOnly: boolean;
+  hasCode: boolean;
+  maxCodeChars: number;
+  maxChars: number;
+  avgChars: number;
+  weight: number;
+};
 
 function esc(s: unknown): string {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -42,22 +50,64 @@ function valueLooksLikeCode(value: unknown): boolean {
   return /^(https?:\/\/|urn:|[A-Za-z][A-Za-z0-9+.-]*:\/\/)/.test(s) || /[#/{}_.:-]|\d/.test(s);
 }
 
+function markdownCodeTokens(value: unknown): string[] {
+  const tokens: string[] = [];
+  const s = String(value ?? '');
+  s.replace(/`([^`]+)`/g, (_m, token) => {
+    tokens.push(token);
+    return '';
+  });
+  return tokens;
+}
+
+function safeCssSize(value: string | undefined): string | undefined {
+  const s = String(value || '').trim();
+  return /^[-\w\s.%(),]+$/.test(s) ? s : undefined;
+}
+
+function columnStats(rows: Record<string, any>[], col: SqlColumn, codeHint: boolean): SqlColumnStats {
+  const source = col.source || col.name || '';
+  const values = rows.map((row) => row[source]).filter((v) => v != null && String(v).trim() !== '');
+  const chars = values.map((v) => String(v).trim().length);
+  const codeTokens = values.flatMap((v) => markdownCodeTokens(v));
+  const valueCodeOnly = values.length > 0 && values.every(valueLooksLikeCode);
+  const codeOnly = codeHint || valueCodeOnly;
+  const hasCode = codeOnly || codeTokens.length > 0;
+  const maxChars = Math.max(...chars, 0);
+  const avgChars = chars.length ? chars.reduce((a, b) => a + b, 0) / chars.length : 0;
+  const maxCodeChars = Math.max(...codeTokens.map((s) => s.length), ...(codeOnly ? chars : []), 0);
+  const weight = codeOnly
+    ? Math.min(Math.max(maxCodeChars + 2, 8), 26)
+    : Math.min(Math.max(Math.sqrt(Math.max(avgChars, 12)) * 4, hasCode ? 18 : 14), 44);
+  return { codeOnly, hasCode, maxCodeChars, maxChars, avgChars, weight };
+}
+
+function columnClass(stats: SqlColumnStats): string {
+  if (stats.codeOnly) return 'code-col sql-code-col';
+  if (stats.hasCode) return 'sql-mixed-code-col';
+  return 'sql-prose-col';
+}
+
 function renderSqlTable(rows: Record<string, any>[], control: { class?: string; titles?: boolean; columns?: SqlColumn[] } = {}): string {
   if (!rows.length) return '<p class="muted">No rows.</p>';
   const columns = control.columns?.length
     ? control.columns
     : Object.keys(rows[0]).map((name) => ({ source: name, name, title: name, type: 'auto' }));
-  const codeColumns = columns.map((col) => {
-    const source = col.source || col.name || '';
+  const stats = columns.map((col) => {
     const label = col.title || col.name || col.source || '';
-    if (columnHintLooksLikeCode(label)) return true;
-    const values = rows.map((row) => row[source]).filter((v) => v != null && String(v).trim() !== '');
-    return values.length > 0 && values.every(valueLooksLikeCode);
+    return columnStats(rows, col, columnHintLooksLikeCode(label));
   });
-  const tableClass = `cycle-table sql-table${control.class ? ` ${esc(control.class)}` : ''}`;
+  const totalWeight = stats.reduce((sum, s) => sum + s.weight, 0) || 1;
+  const colgroup = `<colgroup>${columns.map((col, i) => {
+    const width = safeCssSize(col.width) || `${Math.round((stats[i].weight / totalWeight) * 1000) / 10}%`;
+    const minWidth = safeCssSize(col.minWidth);
+    const style = `width:${width};${minWidth ? `min-width:${minWidth};` : ''}`;
+    return `<col class="${columnClass(stats[i])}" style="${style}">`;
+  }).join('')}</colgroup>`;
+  const tableClass = `cycle-table sql-table sql-table--balanced${control.class ? ` ${esc(control.class)}` : ''}`;
   const head = control.titles === false ? '' : `<thead><tr>${columns.map((c, i) => {
     const label = c.title || c.name || c.source || '';
-    return `<th${codeColumns[i] ? ' class="code-col"' : ''}>${esc(label)}</th>`;
+    return `<th class="${columnClass(stats[i])}">${esc(label)}</th>`;
   }).join('')}</tr></thead>`;
   const renderCell = (row: Record<string, any>, col: SqlColumn, isCodeColumn: boolean) => {
     const source = col.source || col.name || '';
@@ -77,12 +127,11 @@ function renderSqlTable(rows: Record<string, any>[], control: { class?: string; 
   };
   const body = rows.map((row) => {
     const cells = columns.map((c, i) => {
-      const className = codeColumns[i] ? ' class="code-col"' : '';
-      return `<td${className}>${renderCell(row, c, codeColumns[i])}</td>`;
+      return `<td class="${columnClass(stats[i])}">${renderCell(row, c, stats[i].codeOnly)}</td>`;
     }).join('');
     return `<tr>${cells}</tr>`;
   }).join('');
-  return `<div class="table-scroll"><table class="${tableClass}">${head}<tbody>${body}</tbody></table></div>`;
+  return `<div class="table-scroll"><table class="${tableClass}">${colgroup}${head}<tbody>${body}</tbody></table></div>`;
 }
 
 function renderSqlResult(rows: Record<string, any>[], control: { class?: string; titles?: boolean; columns?: SqlColumn[] } = {}): string {

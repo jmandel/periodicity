@@ -11,7 +11,7 @@
  */
 
 import {
-  SYS, LOINC, SCT, FLOW_LEVEL_BY_CODE, FINDING_SYMPTOM_KEY, APP_SYMPTOM_KEY, FINDING_PAINTYPE,
+  SYS, LOINC, SCT, FLOW_LEVEL_BY_CODE, FINDING_SYMPTOM_KEY, FINDING_PAINTYPE,
 } from "./codes.mjs";
 
 const dayOf = (s) => (s ? String(s).slice(0, 10) : null);
@@ -80,19 +80,17 @@ export function transformBundle(bundle, opts = {}) {
       }
       // basal body temperature (a vital sign)
       if (has(code, SYS.loinc, LOINC.bodyTemp)) { const v = num(r); if (v != null) d.bbt = v; continue; }
-      // symptom / finding + an exact standard or app-native value.
+      // symptom + an exact standard value.
       if (has(code, SYS.cycle, "symptom") || has(code, SYS.loinc, LOINC.symptom) || has(code, SYS.loinc, LOINC.mood)) {
         const valueCodings = codings(r.valueCodeableConcept);
         const fc = valueCodings[0]?.code ?? null;
         const fk = valueCodings.map((c) => (
-          c.system === SYS.sct ? FINDING_SYMPTOM_KEY[c.code]
-            : c.system === SYS.appExample ? APP_SYMPTOM_KEY[c.code]
-              : null
+          c.system === SYS.sct ? FINDING_SYMPTOM_KEY[c.code] : null
         )).find(Boolean);
         if (fk) { d.symptoms = d.symptoms || {}; d.symptoms[fk] = Math.max(d.symptoms[fk] || 0, 2); }
         const pt = FINDING_PAINTYPE[fc];
         if (pt) { d.painTypes = d.painTypes || ["pelvic"]; if (!d.painTypes.includes(pt)) d.painTypes.push(pt); }
-        continue; // unrecognised findings (e.g. app-native custom symptoms) are ignored
+        continue; // unrecognised symptom values are ignored
       }
     } else if (r.resourceType === "Procedure") {
       const date = dayOf(r.performedDateTime) || dayOf(r.performedPeriod?.start);

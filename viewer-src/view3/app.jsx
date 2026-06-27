@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { transformBundle } from "../shared/transform.mjs";
 import { prepare } from "../shared/viewmodel.mjs";
+import { SYMPTOM_LABELS } from "../shared/codes.mjs";
 import { DEFAULT_RECIPIENT, extractShlinkURI, parseShlink, resolveShl, shlinkFromPayload } from "../shared/shl.mjs";
 
 const DAY_MS = 86400000;
@@ -340,7 +341,7 @@ function patientSummary(bundle) {
 }
 
 function labelize(key) {
-  return String(key).replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase());
+  return SYMPTOM_LABELS[key] || String(key).replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase());
 }
 
 function Calendar({ model }) {
