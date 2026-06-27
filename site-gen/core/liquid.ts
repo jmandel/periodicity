@@ -15,6 +15,10 @@ function esc(s: unknown): string {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+function inlineMarkdown(s: unknown): string {
+  return esc(s).replace(/`([^`]+)`/g, '<code>$1</code>');
+}
+
 function assertSafeSelect(query: string): string {
   const normalized = query.trim();
   if (!normalized) throw new Error('Empty SQL block');
@@ -68,6 +72,7 @@ function renderSqlTable(rows: Record<string, any>[], control: { class?: string; 
       const display = col.display ? (row[col.display] ?? col.display) : undefined;
       return `<span class="sql-coding">${system ? `<span>${esc(system)}</span> ` : ''}<code>${esc(value)}</code>${display ? ` <span>${esc(display)}</span>` : ''}</span>`;
     }
+    if (type === 'markdown' || type === 'inlineMarkdown') return inlineMarkdown(value);
     return isCodeColumn ? `<code>${esc(value)}</code>` : esc(value);
   };
   const body = rows.map((row) => {

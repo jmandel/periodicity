@@ -8,12 +8,7 @@ This guide defines a minimal FHIR R4 payload for that handoff. A producing app e
 
 ## Adoption layers
 
-Adoption is incremental. Layer 0 is the compatibility floor; higher layers add detail only when the source app actually stores it.
-
-| Layer | Name | Compatibility meaning |
-|---|---|---|
-| **Layer&nbsp;0** | **Bleeding calendar** | Required. A boolean menstrual-bleeding fact at the source date or timestamp. A Layer 0-only export is conformant. |
-| **Layer&nbsp;1** | **Structured facts** | Optional. Flow, symptoms, numeric pain severity, basal body temperature, and other source-coded observations. These add detail but never replace Layer 0. |
+Adoption is incremental. **Layer 0** is the compatibility floor: a boolean menstrual-bleeding fact at the source date or timestamp. A Layer 0-only export is conformant. **Layer 1** adds structured facts such as flow, symptoms, numeric pain severity, basal body temperature, and other source-coded observations when the source app actually stores them. Layer 1 adds detail but never replaces Layer 0.
 
 ## Data model
 
@@ -21,30 +16,19 @@ The payload is a FHIR `collection` Bundle: a transportable set of independently 
 
 Receivers group facts by the local date portion of `effectiveDateTime` when they need daily rows. The guide does not define a daily grouping Observation.
 
-### Profiles
+### Profiles and layers
 
-These profiles are the exchange surface. The descriptions below are read from the generated profile metadata.
+These profiles are the exchange surface. The table below combines the adoption layer, generated profile description, and the wire shape implementers need to recognize.
 
 {% sql {
-  "query": "select Title as Profile, Web, case Id when 'period-tracking-bundle' then 'Container' when 'period-tracking-fact' then 'Abstract fact' when 'menstrual-bleeding' then 'Layer 0' else 'Layer 1' end as Layer, Description as Role from Resources where Type = 'StructureDefinition' and Id in ('period-tracking-bundle','period-tracking-fact','menstrual-bleeding','menstrual-flow','symptom','numeric-pain-severity','basal-body-temperature') order by case Id when 'period-tracking-bundle' then 10 when 'period-tracking-fact' then 20 when 'menstrual-bleeding' then 30 when 'menstrual-flow' then 40 when 'symptom' then 50 when 'numeric-pain-severity' then 60 when 'basal-body-temperature' then 70 else 999 end",
+  "query": "select case Id when 'menstrual-bleeding' then 'Layer 0: required core' when 'menstrual-flow' then 'Layer 1: optional structured fact' when 'symptom' then 'Layer 1: optional structured fact' when 'numeric-pain-severity' then 'Layer 1: optional structured fact' when 'basal-body-temperature' then 'Layer 1: optional structured fact' when 'period-tracking-bundle' then 'Container' when 'period-tracking-fact' then 'Base shape' end as Layer, Title as Profile, Web, Description as Meaning, case Id when 'menstrual-bleeding' then '`cycle#menstrual-bleeding` with `valueBoolean=true` or `false`' when 'menstrual-flow' then '`cycle#menstrual-flow` with `flow-none`, `flow-spotting`, `flow-light`, `flow-moderate`, or `flow-heavy`' when 'symptom' then '`cycle#symptom` with `valueCodeableConcept` naming the symptom' when 'numeric-pain-severity' then 'LOINC `72514-3` with UCUM `{score}` quantity' when 'basal-body-temperature' then 'LOINC `8310-5` with UCUM temperature quantity' when 'period-tracking-bundle' then 'FHIR `collection` Bundle scoped to one person; contains at least one Layer 0 fact' when 'period-tracking-fact' then 'Abstract Observation shape: `status=final`, `effectiveDateTime`, optional `subject`, optional `device`, and exactly one `value[x]`' end as Result from Resources where Type = 'StructureDefinition' and Id in ('period-tracking-bundle','period-tracking-fact','menstrual-bleeding','menstrual-flow','symptom','numeric-pain-severity','basal-body-temperature') order by case Id when 'menstrual-bleeding' then 10 when 'menstrual-flow' then 20 when 'symptom' then 30 when 'numeric-pain-severity' then 40 when 'basal-body-temperature' then 50 when 'period-tracking-bundle' then 60 when 'period-tracking-fact' then 70 else 999 end",
   "columns": [
-    { "source": "Profile", "type": "link", "target": "Web" },
     { "source": "Layer" },
-    { "source": "Role" }
+    { "source": "Profile", "type": "link", "target": "Web" },
+    { "source": "Meaning" },
+    { "source": "Result", "type": "markdown" }
   ]
 } %}
-
-Every concrete fact profile inherits the base Period Tracking Fact shape: `status=final`, a code, an `effectiveDateTime`, optional `subject`, optional `device`, and exactly one `value[x]`.
-
-### Layered fact model
-
-| Layer | Profile | Meaning | Result |
-|---|---|---|---|
-| **Layer&nbsp;0: required core** | [Menstrual Bleeding](StructureDefinition-menstrual-bleeding.html) | Whether the source records menstrual bleeding at the associated date or timestamp. | `cycle#menstrual-bleeding` with `valueBoolean=true` or `false` |
-| **Layer&nbsp;1: optional structured facts** | [Menstrual Flow](StructureDefinition-menstrual-flow.html) | Source flow category. This characterizes the bleeding record; it does not replace Layer 0. | `flow-none`, `flow-spotting`, `flow-light`, `flow-moderate`, or `flow-heavy` |
-| **Layer&nbsp;1: optional structured facts** | [Symptom](StructureDefinition-symptom.html) | A symptom selection, finding, or app-native symptom. | `valueCodeableConcept` naming the symptom |
-| **Layer&nbsp;1: optional structured facts** | [Numeric Pain Severity](StructureDefinition-numeric-pain-severity.html) | True 0-10 numeric pain rating. | UCUM `{score}` quantity |
-| **Layer&nbsp;1: optional structured facts** | [Basal Body Temperature](StructureDefinition-basal-body-temperature.html) | Temperature measurement identified by the source as basal. | UCUM temperature quantity |
 
 The bleeding fact is the universal core. A flow-capable app emits both the Layer 0 bleeding boolean and the Layer 1 flow fact when it has a source flow value. `flow-none` is consistent with `menstrual-bleeding=false`; spotting or greater is consistent with `menstrual-bleeding=true`.
 
