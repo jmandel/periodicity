@@ -227,7 +227,7 @@ function relativePathFromSlice(slicePath: string, childPath: string | undefined)
 
 function childElementForDiscriminator(profile: Json, slice: Json, discriminatorPath: string): Json | undefined {
   if (discriminatorPath === '$this' || discriminatorPath === 'resolve()') return slice;
-  const wantedPath = `${slice.path}.${discriminatorPath}`;
+  const wantedPath = `${slice.path}.${discriminatorPath.replace(/\.resolve\(\)$/, '')}`;
   return profileElements(profile).find((e) => typeof e.id === 'string' && e.id.startsWith(`${slice.id}.`) && e.path === wantedPath);
 }
 
@@ -237,6 +237,13 @@ function valueMatchesElementConstraint(value: any, element: Json): boolean | nul
   return requiredValue.kind === 'fixed'
     ? matchesFixed(requiredValue.value, value)
     : matchesPattern(requiredValue.value, value);
+}
+
+function valueDiscriminatorMatch(candidate: PathValue, slice: Json, child: Json | undefined): boolean | null {
+  if (!child) return null;
+  if (!patternField(child)) return null;
+  return valuesAtRelativePath(candidate.value, relativePathFromSlice(slice.path, child.path) || undefined)
+    .some((v) => valueMatchesElementConstraint(v.value, child));
 }
 
 function resolvedReference(value: any, runtime: ValidationRuntime): Json | null {
@@ -251,9 +258,28 @@ function discriminatorValues(value: any, discriminatorPath: string, runtime: Val
   return resolved ? [{ value: resolved, path: 'resolve()' }] : [];
 }
 
-function matchingTypeProfiles(type: Json, candidateType: string | undefined): string[] | null {
+function resolvedDiscriminatorValues(value: any, discriminatorPath: string, runtime: ValidationRuntime): PathValue[] {
+  if (discriminatorPath === 'resolve()') return discriminatorValues(value, discriminatorPath, runtime);
+  if (!discriminatorPath.endsWith('.resolve()')) return discriminatorValues(value, discriminatorPath, runtime);
+  const referencePath = discriminatorPath.slice(0, -'.resolve()'.length);
+  return valuesAtRelativePath(value, referencePath)
+    .map((candidate) => ({ candidate, resolved: resolvedReference(candidate.value, runtime) }))
+    .filter((candidate): candidate is { candidate: PathValue; resolved: Json } => !!candidate.resolved)
+    .map(({ candidate, resolved }) => ({ value: resolved, path: candidate.path ? `${candidate.path}.resolve()` : 'resolve()' }));
+}
+
+function targetProfileMatchesCandidate(profileUrl: string, candidateType: string | undefined, runtime: ValidationRuntime): boolean {
+  if (!candidateType) return true;
+  const profile = runtime.profilesByUrl.get(canonicalNoVersion(profileUrl)) || runtime.profilesByUrl.get(profileUrl);
+  return !profile?.type || profile.type === candidateType;
+}
+
+function matchingTypeProfiles(type: Json, candidateType: string | undefined, runtime: ValidationRuntime): string[] | null {
   if (type.code === 'Reference' && candidateType) {
-    return [...(Array.isArray(type.profile) ? type.profile : []), ...(Array.isArray(type.targetProfile) ? type.targetProfile : [])];
+    const profiles = [...(Array.isArray(type.profile) ? type.profile : []), ...(Array.isArray(type.targetProfile) ? type.targetProfile : [])];
+    if (!profiles.length) return [];
+    const matchingProfiles = profiles.filter((profileUrl: string) => targetProfileMatchesCandidate(profileUrl, candidateType, runtime));
+    return matchingProfiles.length ? matchingProfiles : null;
   }
   if (type.code === candidateType) return Array.isArray(type.profile) ? type.profile : [];
   return null;
@@ -262,12 +288,12 @@ function matchingTypeProfiles(type: Json, candidateType: string | undefined): st
 function valueMatchesTypeConstraint(value: any, element: Json, discriminatorPath: string, discriminatorType: string, slice: Json, runtime: ValidationRuntime): boolean | null {
   const types = Array.isArray(element.type) ? element.type : [];
   if (!types.length) return null;
-  const candidates = discriminatorValues(value, discriminatorPath, runtime);
+  const candidates = resolvedDiscriminatorValues(value, discriminatorPath, runtime);
   if (!candidates.length) return false;
   return candidates.some((candidate) => {
     const candidateType = candidate.value?.resourceType;
     const matchingTypes = typeof candidateType === 'string'
-      ? types.map((t: Json) => ({ type: t, profiles: matchingTypeProfiles(t, candidateType) })).filter((t) => t.profiles !== null)
+      ? types.map((t: Json) => ({ type: t, profiles: matchingTypeProfiles(t, candidateType, runtime) })).filter((t) => t.profiles !== null)
       : [];
     if (!matchingTypes.length) return false;
     if (discriminatorType !== 'profile') return true;
@@ -327,10 +353,9 @@ function matchesSlice(profile: Json, slice: Json, candidate: PathValue, runtime:
     const child = childElementForDiscriminator(profile, slice, discriminator.path);
     if (discriminator.type === 'value') {
       const matched = child
-        ? valuesAtRelativePath(candidate.value, relativePathFromSlice(slice.path, child.path) || undefined)
-          .some((v) => valueMatchesElementConstraint(v.value, child))
+        ? valueDiscriminatorMatch(candidate, slice, child)
         : valueMatchesProfileConstrainedDiscriminator(slice, candidate, discriminator.path, runtime);
-      if (matched === null) return false;
+      if (matched === null) continue;
       evaluatedDiscriminators++;
       if (!matched) return false;
     } else if (discriminator.type === 'type' || discriminator.type === 'profile') {
@@ -518,7 +543,16 @@ function evaluateKnownConstraint(resource: Json, constraint: Json): boolean | nu
 function evaluateFhirPathConstraint(resource: Json, element: Json, context: PathValue, constraint: Json, runtime: ValidationRuntime): unknown {
   const known = evaluateKnownConstraint(resource, constraint);
   if (known !== null) return [known];
-  return fhirpath.evaluate(context.value, { base: element.path, expression: constraint.expression }, { resource }, runtime.fhirPathModel, { traceFn: () => {} });
+  return fhirpath.evaluate(context.value, { base: fhirPathBaseForContext(element), expression: constraint.expression }, { resource }, runtime.fhirPathModel, { traceFn: () => {} });
+}
+
+function fhirPathBaseForContext(element: Json): string | undefined {
+  const typeCodes = (Array.isArray(element.type) ? element.type : [])
+    .map((type: Json) => type.code)
+    .filter((code: unknown): code is string => typeof code === 'string' && !code.startsWith('http://'));
+  const uniqueCodes = [...new Set(typeCodes)];
+  if (uniqueCodes.length === 1 && uniqueCodes[0] !== 'BackboneElement') return uniqueCodes[0];
+  return element.path;
 }
 
 function fhirPathSelectorForElement(elementPath: string | undefined): string | null {

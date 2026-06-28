@@ -356,6 +356,52 @@ describe('publisher example validation', () => {
     expect(validateResourceAgainstProfile(both, profile, [profile, both]).map((i) => i.code)).toEqual(['fhirpath-constraint']);
   });
 
+  test('evaluates sliced Extension ext-1 with value[x] choice values', () => {
+    const profile = {
+      resourceType: 'StructureDefinition',
+      url: 'https://example.org/StructureDefinition/sliced-extension-holder',
+      type: 'Flag',
+      fhirVersion: '4.0.1',
+      snapshot: {
+        element: [
+          { id: 'Flag', path: 'Flag', min: 0, max: '*' },
+          {
+            id: 'Flag.extension',
+            path: 'Flag.extension',
+            min: 0,
+            max: '*',
+            type: [{ code: 'Extension' }],
+            slicing: { discriminator: [{ type: 'value', path: 'url' }], rules: 'open' },
+          },
+          {
+            id: 'Flag.extension:billing',
+            path: 'Flag.extension',
+            sliceName: 'billing',
+            min: 0,
+            max: '*',
+            type: [{ code: 'Extension' }],
+            constraint: [
+              { key: 'ext-1', severity: 'error', human: 'Must have either extensions or value[x], not both', expression: 'extension.exists() != value.exists()' },
+            ],
+          },
+          { id: 'Flag.extension:billing.url', path: 'Flag.extension.url', min: 1, max: '1', fixedUri: 'https://example.org/ext/billing' },
+        ],
+      },
+    };
+    const valueOnly = {
+      resourceType: 'Flag',
+      id: 'value-only-sliced',
+      extension: [
+        {
+          url: 'https://example.org/ext/billing',
+          valueCodeableConcept: { coding: [{ system: 'https://example.org/cs', code: 'a' }] },
+        },
+      ],
+    };
+
+    expect(validateResourceAgainstProfile(valueOnly, profile, [profile, valueOnly])).toEqual([]);
+  });
+
   test('treats patternCodeableConcept as a required subset, not an exact fixed value', () => {
     const extraCoding = observation({
       code: {
@@ -487,6 +533,90 @@ describe('publisher example validation', () => {
     };
 
     expect(validateResourceAgainstProfile(composition, profile, [profile, composition])).toEqual([]);
+  });
+
+  test('matches slices with relative resolve() profile discriminators', () => {
+    const patientProfile = {
+      resourceType: 'StructureDefinition',
+      url: 'https://example.org/StructureDefinition/patient',
+      type: 'Patient',
+      snapshot: { element: [{ id: 'Patient', path: 'Patient', min: 0, max: '*' }] },
+    };
+    const practitionerProfile = {
+      resourceType: 'StructureDefinition',
+      url: 'https://example.org/StructureDefinition/practitioner',
+      type: 'Practitioner',
+      snapshot: { element: [{ id: 'Practitioner', path: 'Practitioner', min: 0, max: '*' }] },
+    };
+    const profile = {
+      resourceType: 'StructureDefinition',
+      url: 'https://example.org/StructureDefinition/appointment',
+      type: 'Appointment',
+      snapshot: {
+        element: [
+          { id: 'Appointment', path: 'Appointment', min: 0, max: '*' },
+          {
+            id: 'Appointment.participant',
+            path: 'Appointment.participant',
+            min: 2,
+            max: '*',
+            slicing: {
+              discriminator: [
+                { type: 'value', path: 'type' },
+                { type: 'profile', path: 'actor.resolve()' },
+              ],
+              rules: 'open',
+            },
+          },
+          { id: 'Appointment.participant:Patient', path: 'Appointment.participant', sliceName: 'Patient', min: 1, max: '1' },
+          {
+            id: 'Appointment.participant:Patient.type',
+            path: 'Appointment.participant.type',
+            min: 0,
+            max: '*',
+            type: [{ code: 'CodeableConcept' }],
+          },
+          {
+            id: 'Appointment.participant:Patient.actor',
+            path: 'Appointment.participant.actor',
+            min: 0,
+            max: '1',
+            type: [{ code: 'Reference', targetProfile: [patientProfile.url] }],
+          },
+          { id: 'Appointment.participant:PrimaryPerformer', path: 'Appointment.participant', sliceName: 'PrimaryPerformer', min: 1, max: '*' },
+          {
+            id: 'Appointment.participant:PrimaryPerformer.type',
+            path: 'Appointment.participant.type',
+            min: 1,
+            max: '1',
+            patternCodeableConcept: { coding: [{ system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType', code: 'PPRF' }] },
+          },
+          {
+            id: 'Appointment.participant:PrimaryPerformer.actor',
+            path: 'Appointment.participant.actor',
+            min: 0,
+            max: '1',
+            type: [{ code: 'Reference', targetProfile: [practitionerProfile.url] }],
+          },
+        ],
+      },
+    };
+    const patient = { resourceType: 'Patient', id: 'example' };
+    const practitioner = { resourceType: 'Practitioner', id: 'full' };
+    const appointment = {
+      resourceType: 'Appointment',
+      id: 'a',
+      participant: [
+        { actor: { reference: 'Patient/example' }, status: 'accepted' },
+        {
+          type: [{ coding: [{ system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType', code: 'PPRF' }] }],
+          actor: { reference: 'Practitioner/full' },
+          status: 'accepted',
+        },
+      ],
+    };
+
+    expect(validateResourceAgainstProfile(appointment, profile, [profile, patientProfile, practitionerProfile, patient, practitioner, appointment])).toEqual([]);
   });
 
   test('applies nested slice cardinality within the matched parent slice', () => {
