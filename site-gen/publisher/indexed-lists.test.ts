@@ -4,7 +4,9 @@ import {
   additionalBindingValueSetUrls,
   deriveIndexedListRows,
   externalValueSetWeb,
+  implicitValueSetForUrl,
   packageSourceLabel,
+  questionnaireAnswerValueSetUrlOccurrences,
   questionnaireAnswerValueSetUrls,
   sourceForSystem,
   structureDefinitionBindingValueSetUrls,
@@ -51,6 +53,15 @@ function indexedValueSetSource(packageName: string, version: string, manifest: R
     },
     sourcePath: `/packages/${packageName}/ValueSet.json`,
     resource: { resourceType: 'ValueSet', url: 'http://example.org/ValueSet/source' },
+  };
+}
+
+function indexedValueSet(valueSet: Record<string, any>, packageName = 'hl7.fhir.r4.core'): IndexedResource {
+  return {
+    key: { resourceType: 'ValueSet', url: valueSet.url, version: valueSet.version },
+    package: { name: packageName, version: '1.0.0' },
+    sourcePath: `/packages/${packageName}/${valueSet.id || 'ValueSet'}.json`,
+    resource: valueSet,
   };
 }
 
@@ -128,16 +139,44 @@ describe('publisher list-index helpers', () => {
   });
 
   test('extracts nested Questionnaire answer ValueSet URLs', () => {
-    expect(questionnaireAnswerValueSetUrls({
+    const questionnaire = {
       resourceType: 'Questionnaire',
       item: [
         { answerValueSet: 'http://example.org/ValueSet/root|1.0.0' },
+        { answerValueSet: 'http://example.org/ValueSet/root|1.0.0' },
+        { answerValueSet: '#contained' },
         { item: [{ answerValueSet: 'http://example.org/ValueSet/child' }] },
       ],
-    })).toEqual([
+    };
+    expect(questionnaireAnswerValueSetUrlOccurrences(questionnaire)).toEqual([
+      'http://example.org/ValueSet/root',
+      'http://example.org/ValueSet/root',
+      'http://example.org/ValueSet/child',
+    ]);
+    expect(questionnaireAnswerValueSetUrls(questionnaire)).toEqual([
       'http://example.org/ValueSet/child',
       'http://example.org/ValueSet/root',
     ]);
+  });
+
+  test('matches Publisher implicit ValueSet metadata for common terminology URLs', () => {
+    expect(implicitValueSetForUrl('http://loinc.org/vs/LL1-9')).toMatchObject({
+      resourceType: 'ValueSet',
+      url: 'http://loinc.org/vs/LL1-9',
+      status: 'active',
+      name: 'LOINCAnswersLL1-9',
+      title: 'LOINC Answer Codes for LL1-9',
+      compose: { include: [{ system: 'http://loinc.org', filter: [{ property: 'LIST', op: '=', value: 'LL1-9' }] }] },
+    });
+    expect(implicitValueSetForUrl('http://snomed.info/sct?fhir_vs')).toMatchObject({
+      resourceType: 'ValueSet',
+      url: 'http://snomed.info/sct?fhir_vs',
+      status: 'active',
+      name: 'SCTValueSetAll',
+      title: 'All Codes SCT ValueSet',
+      description: 'Value Set for All SNOMED CT Concepts',
+      compose: { include: [{ system: 'http://snomed.info/sct' }] },
+    });
   });
 
   test('uses the source FHIR core package when building external ValueSet links', () => {
@@ -286,6 +325,145 @@ describe('publisher list-index helpers', () => {
         resourceKey: 2,
         title: 'Survey',
         web: 'Questionnaire-survey.html',
+      },
+    ]);
+  });
+
+  test('preserves duplicate rows for implicit Questionnaire answer ValueSets', () => {
+    const questionnaire = {
+      resourceType: 'Questionnaire',
+      id: 'survey',
+      title: 'Survey',
+      item: [
+        { linkId: 'q1', answerValueSet: 'http://loinc.org/vs/LL1-9' },
+        { linkId: 'q2', answerValueSet: 'http://loinc.org/vs/LL1-9' },
+      ],
+    };
+    const rows = deriveIndexedListRows(
+      [questionnaire],
+      new Map([['Questionnaire/survey', 1]]),
+      { current: emptyIndex(), core: emptyIndex(), dependencies: emptyIndex() },
+    );
+
+    expect(rows.valueSetRows.filter((row) => row.viewType === 2).map((row) => [row.url, row.name, row.title])).toEqual([
+      ['http://loinc.org/vs/LL1-9', 'LOINCAnswersLL1-9', 'LOINC Answer Codes for LL1-9'],
+      ['http://loinc.org/vs/LL1-9', 'LOINCAnswersLL1-9', 'LOINC Answer Codes for LL1-9'],
+    ]);
+    expect(rows.valueSetRows.filter((row) => row.viewType === 3).map((row) => row.url)).toEqual([
+      'http://loinc.org/vs/LL1-9',
+      'http://loinc.org/vs/LL1-9',
+    ]);
+    expect(rows.valueSetRefRows.map((row) => [row.valueSetListKey, row.type, row.id])).toEqual([
+      [1, 'Questionnaire', 'survey'],
+      [2, 'Questionnaire', 'survey'],
+      [3, 'Questionnaire', 'survey'],
+      [4, 'Questionnaire', 'survey'],
+    ]);
+  });
+
+  test('keeps package-resolved Questionnaire answer ValueSets as a single indexed row', () => {
+    const valueSet = {
+      resourceType: 'ValueSet',
+      id: 'administrative-gender',
+      url: 'http://hl7.org/fhir/ValueSet/administrative-gender',
+      status: 'active',
+      compose: { include: [{ system: 'http://hl7.org/fhir/administrative-gender' }] },
+    };
+    const core = emptyIndex();
+    const source = indexedValueSet(valueSet);
+    core.byCanonical.set(`ValueSet|${valueSet.url}`, source);
+    const questionnaire = {
+      resourceType: 'Questionnaire',
+      id: 'survey',
+      title: 'Survey',
+      item: [
+        { linkId: 'q1', answerValueSet: valueSet.url },
+        { linkId: 'q2', answerValueSet: valueSet.url },
+      ],
+    };
+    const rows = deriveIndexedListRows(
+      [questionnaire],
+      new Map([['Questionnaire/survey', 1]]),
+      { current: emptyIndex(), core, dependencies: emptyIndex() },
+    );
+
+    expect(rows.valueSetRows.filter((row) => row.viewType === 2).map((row) => row.url)).toEqual([valueSet.url]);
+    expect(rows.valueSetRows.filter((row) => row.viewType === 3).map((row) => row.url)).toEqual([valueSet.url]);
+    expect(rows.valueSetRefRows.map((row) => [row.valueSetListKey, row.type, row.id])).toEqual([
+      [1, 'Questionnaire', 'survey'],
+      [2, 'Questionnaire', 'survey'],
+    ]);
+  });
+
+  test('indexes direct Questionnaire-contained ValueSets and their imports', () => {
+    const bodyWeight = {
+      resourceType: 'ValueSet',
+      id: 'ucum-bodyweight',
+      url: 'http://hl7.org/fhir/ValueSet/ucum-bodyweight',
+      status: 'active',
+      compose: { include: [{ system: 'http://unitsofmeasure.org' }] },
+    };
+    const core = emptyIndex();
+    core.byCanonical.set(`ValueSet|${bodyWeight.url}`, indexedValueSet(bodyWeight));
+    const questionnaire = {
+      resourceType: 'Questionnaire',
+      id: 'profile-example',
+      title: 'Profile Example',
+      contained: [
+        {
+          resourceType: 'ValueSet',
+          id: 'WeightUnits',
+          name: 'WeightUnits',
+          compose: {
+            include: [
+              { system: 'http://terminology.hl7.org/CodeSystem/data-absent-reason' },
+              { valueSet: [bodyWeight.url] },
+            ],
+          },
+        },
+        {
+          resourceType: 'ValueSet',
+          id: 'LL358-3',
+          url: 'http://example.org/ValueSet/LL358-3',
+          name: 'ContainedAnswerList',
+          compose: { include: [{ system: 'http://loinc.org' }] },
+        },
+      ],
+      item: [{ linkId: 'q1', answerValueSet: '#WeightUnits' }],
+    };
+
+    const rows = deriveIndexedListRows(
+      [questionnaire],
+      new Map([['Questionnaire/profile-example', 1]]),
+      { current: emptyIndex(), core, dependencies: emptyIndex() },
+    );
+
+    expect(rows.valueSetRows.filter((row) => row.viewType === 2).map((row) => [row.url, row.name])).toEqual([
+      [null, 'WeightUnits'],
+      ['http://example.org/ValueSet/LL358-3', 'ContainedAnswerList'],
+      [bodyWeight.url, null],
+    ]);
+    expect(rows.valueSetRows.filter((row) => row.viewType === 3).map((row) => [row.url, row.name])).toEqual([
+      [null, 'WeightUnits'],
+      ['http://example.org/ValueSet/LL358-3', 'ContainedAnswerList'],
+      [bodyWeight.url, null],
+    ]);
+    expect(rows.valueSetRefRows).toEqual([
+      {
+        valueSetListKey: 3,
+        type: 'ValueSet',
+        id: 'WeightUnits',
+        resourceKey: null,
+        title: 'WeightUnits',
+        web: 'ValueSet-profile-example_WeightUnits.html',
+      },
+      {
+        valueSetListKey: 6,
+        type: 'ValueSet',
+        id: 'WeightUnits',
+        resourceKey: null,
+        title: 'WeightUnits',
+        web: 'ValueSet-profile-example_WeightUnits.html',
       },
     ]);
   });
