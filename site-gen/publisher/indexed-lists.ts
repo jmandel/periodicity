@@ -7,7 +7,7 @@ import {
   type IndexedResource,
   type PublisherCanonicalIndexes,
 } from './canonical';
-import { fhirPublicationBaseForCorePackage } from './fhir-versions';
+import { fhirPublicationBaseForCorePackage, publicationBaseForPackage } from './fhir-versions';
 import { resourceOidValues, type OidAssignments } from './oids';
 import { pageFor, resourceRef } from './rows';
 import { existsSync, readFileSync } from 'node:fs';
@@ -214,10 +214,10 @@ function specInternalsPaths(source?: IndexedResource): Map<string, string> | nul
 
 function packageWebPath(resource: Json, source?: IndexedResource): string | null {
   if (!resource?.url) return null;
-  const fhirBase = source?.package ? fhirPublicationBaseForCorePackage(source.package) : null;
-  if (!fhirBase) return null;
+  const packageBase = source?.package ? publicationBaseForPackage(source.package) : null;
+  if (!packageBase) return null;
   const relativePath = specInternalsPaths(source)?.get(resource.url);
-  return relativePath ? new URL(relativePath, fhirBase).toString() : null;
+  return relativePath ? new URL(relativePath, packageBase).toString() : null;
 }
 
 export function externalValueSetWeb(vs: Json, source?: IndexedResource): string {

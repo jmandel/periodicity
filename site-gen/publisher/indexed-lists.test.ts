@@ -214,7 +214,7 @@ describe('publisher list-index helpers', () => {
     )).toBe('http://hl7.org/fhir/6.0.0-ballot3/v2/0203/index.html');
   });
 
-  test('uses package spec.internals paths before guessing canonical-tail web paths', () => {
+  test('uses package spec.internals paths with package publication URLs before guessing canonical-tail web paths', () => {
     const root = mkdtempSync(join(tmpdir(), 'publisher-spec-internals-'));
     const packageDir = join(root, 'hl7.fhir.r4.core#4.0.1', 'package');
     mkdirSync(join(packageDir, 'other'), { recursive: true });
@@ -232,6 +232,23 @@ describe('publisher list-index helpers', () => {
         resource: { resourceType: 'ValueSet', url: 'http://hl7.org/fhir/ValueSet/yesnodontknow' },
       },
     )).toBe('http://hl7.org/fhir/R4/valueset-example-yesnodontknow.html');
+
+    const igPackageDir = join(root, 'hl7.fhir.us.core#7.0.0', 'package');
+    mkdirSync(join(igPackageDir, 'other'), { recursive: true });
+    writeFileSync(join(igPackageDir, 'other', 'spec.internals'), JSON.stringify({
+      paths: {
+        'http://hl7.org/fhir/us/core/ValueSet/us-core-servicerequest-category': 'ValueSet-us-core-servicerequest-category.html',
+      },
+    }));
+    expect(externalValueSetWeb(
+      { resourceType: 'ValueSet', id: 'us-core-servicerequest-category', url: 'http://hl7.org/fhir/us/core/ValueSet/us-core-servicerequest-category' },
+      {
+        key: { resourceType: 'ValueSet', url: 'http://hl7.org/fhir/us/core/ValueSet/us-core-servicerequest-category' },
+        package: { name: 'hl7.fhir.us.core', version: '7.0.0', dir: igPackageDir, manifest: { url: 'http://hl7.org/fhir/us/core/STU7' } },
+        sourcePath: join(igPackageDir, 'ValueSet-us-core-servicerequest-category.json'),
+        resource: { resourceType: 'ValueSet', url: 'http://hl7.org/fhir/us/core/ValueSet/us-core-servicerequest-category' },
+      },
+    )).toBe('http://hl7.org/fhir/us/core/STU7/ValueSet-us-core-servicerequest-category.html');
   });
 
   test('derives indexed ValueSet and CodeSystem list rows without SQLite', () => {

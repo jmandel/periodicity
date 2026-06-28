@@ -22,3 +22,8 @@ export function fhirPublicationBaseForCorePackage(pkg: Pick<ResolvedPackage, 'na
   if (pkg.name === 'hl7.fhir.r6.core') return manifestUrl || fhirPublicationBaseForVersion(pkg.version);
   return null;
 }
+
+export function publicationBaseForPackage(pkg: Pick<ResolvedPackage, 'name' | 'version' | 'manifest'>): string | null {
+  const manifestUrl = typeof pkg.manifest?.url === 'string' ? ensureTrailingSlash(pkg.manifest.url) : null;
+  return manifestUrl || fhirPublicationBaseForCorePackage(pkg);
+}

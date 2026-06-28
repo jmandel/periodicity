@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { fhirPublicationBaseForCorePackage, fhirPublicationBaseForVersion } from './fhir-versions';
+import { fhirPublicationBaseForCorePackage, fhirPublicationBaseForVersion, publicationBaseForPackage } from './fhir-versions';
 
 describe('FHIR version publication paths', () => {
   test('maps FHIR versions to publication bases', () => {
@@ -25,6 +25,19 @@ describe('FHIR version publication paths', () => {
       name: 'example.ig',
       version: '1.0.0',
       manifest: { url: 'https://example.org' },
+    })).toBeNull();
+  });
+
+  test('uses package manifest URL for non-core IG packages', () => {
+    expect(publicationBaseForPackage({
+      name: 'hl7.fhir.us.core',
+      version: '7.0.0',
+      manifest: { url: 'http://hl7.org/fhir/us/core/STU7' },
+    })).toBe('http://hl7.org/fhir/us/core/STU7/');
+    expect(publicationBaseForPackage({
+      name: 'example.ig',
+      version: '1.0.0',
+      manifest: {},
     })).toBeNull();
   });
 });
