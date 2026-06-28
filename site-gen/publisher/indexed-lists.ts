@@ -588,7 +588,7 @@ export function deriveIndexedListRows(
       if (occurrences.length) {
         for (const ref of occurrences) addValueSetRow(2, vs, [ref], false);
       } else {
-        addValueSetRow(2, vs, mergeRefs(localBindings.get(url), artifactValueSetRefs.get(url)), Boolean(localByUrl.get(url)));
+        addValueSetRow(2, vs, mergeRefs(localBindings.get(url), artifactValueSetRefs.get(url), valueSetImportRefs.get(url)), Boolean(localByUrl.get(url)));
       }
     }
   }
@@ -613,7 +613,7 @@ export function deriveIndexedListRows(
       if (occurrences.length) {
         for (const ref of occurrences) addValueSetRow(3, vs, [ref], false);
       } else {
-        addValueSetRow(3, vs, mergeRefs(snapshotBindings.get(url), artifactValueSetRefs.get(url)), false);
+        addValueSetRow(3, vs, mergeRefs(snapshotBindings.get(url), artifactValueSetRefs.get(url), valueSetImportRefs.get(url)), false);
       }
     }
   }

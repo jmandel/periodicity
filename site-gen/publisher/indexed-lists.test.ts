@@ -337,6 +337,51 @@ describe('publisher list-index helpers', () => {
     ]);
   });
 
+  test('preserves ValueSet import refs when a ValueSet row also has profile binding refs', () => {
+    const importedValueSet = {
+      resourceType: 'ValueSet',
+      id: 'imported',
+      url: 'http://example.org/ValueSet/imported',
+      title: 'Imported Value Set',
+    };
+    const importingValueSet = {
+      resourceType: 'ValueSet',
+      id: 'importing',
+      url: 'http://example.org/ValueSet/importing',
+      title: 'Importing Value Set',
+      compose: { include: [{ valueSet: [importedValueSet.url] }] },
+    };
+    const profile = {
+      resourceType: 'StructureDefinition',
+      id: 'uses-imported',
+      url: 'http://example.org/StructureDefinition/uses-imported',
+      snapshot: { element: [{ id: 'Observation.code', binding: { valueSet: importedValueSet.url } }] },
+    };
+    const dependencies = emptyIndex();
+    dependencies.byCanonical.set(`ValueSet|${importedValueSet.url}`, {
+      key: { resourceType: 'ValueSet', url: importedValueSet.url },
+      sourcePath: 'package/ValueSet-imported.json',
+      resource: importedValueSet,
+      package: { name: 'example.package', version: '1.0.0', manifest: { url: 'http://example.org/ig' } },
+    });
+
+    const rows = deriveIndexedListRows(
+      [importingValueSet, profile],
+      new Map([
+        ['ValueSet/importing', 1],
+        ['StructureDefinition/uses-imported', 2],
+      ]),
+      { current: emptyIndex(), core: emptyIndex(), dependencies },
+    );
+    const importedView3 = rows.valueSetRows.find((row) => row.viewType === 3 && row.url === importedValueSet.url)!;
+    const refs = rows.valueSetRefRows
+      .filter((row) => row.valueSetListKey === importedView3.key)
+      .map((row) => `${row.type}/${row.id}`)
+      .sort();
+
+    expect(refs).toEqual(['StructureDefinition/uses-imported', 'ValueSet/importing']);
+  });
+
   test('uses terminology-service CodeSystem metadata for CodeSystem list rows', () => {
     const valueSet = {
       resourceType: 'ValueSet',

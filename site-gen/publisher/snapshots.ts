@@ -30,7 +30,7 @@ export function assertStructureDefinitionSnapshots(resources: Json[]): void {
 }
 
 function snapshotElementKey(element: Json): string | null {
-  return typeof element.path === 'string' ? element.path : typeof element.id === 'string' ? element.id : null;
+  return typeof element.id === 'string' ? element.id : typeof element.path === 'string' ? element.path : null;
 }
 
 function normalizedDifferentialElement(element: Json): Json {
@@ -48,6 +48,47 @@ function mergeElement(base: Json, differential: Json): Json {
     ...diff,
     base: diff.base || base.base || (diff.path ? { path: diff.path, min: diff.min ?? base.min ?? 0, max: diff.max ?? base.max ?? '*' } : undefined),
   };
+}
+
+function introducedSlicePaths(differentialElements: Json[]): Set<string> {
+  const out = new Set<string>();
+  for (const differential of differentialElements) {
+    const normalized = normalizedDifferentialElement(differential);
+    const id = typeof normalized.id === 'string' ? normalized.id : '';
+    const path = typeof normalized.path === 'string' ? normalized.path : '';
+    if (path && (typeof normalized.sliceName === 'string' || id.includes(':'))) out.add(path);
+  }
+  return out;
+}
+
+function explicitlyConstrainedUnslicedPaths(differentialElements: Json[]): Set<string> {
+  const out = new Set<string>();
+  for (const differential of differentialElements) {
+    const normalized = normalizedDifferentialElement(differential);
+    const id = typeof normalized.id === 'string' ? normalized.id : '';
+    const path = typeof normalized.path === 'string' ? normalized.path : '';
+    if (path && id === path && typeof normalized.sliceName !== 'string' && !id.includes(':')) out.add(path);
+  }
+  return out;
+}
+
+function prunedInheritedUnslicedDescendants(out: Json[], differentialElements: Json[]): Json[] {
+  const slicePaths = introducedSlicePaths(differentialElements);
+  if (!slicePaths.size) return out;
+  const constrainedUnslicedPaths = explicitlyConstrainedUnslicedPaths(differentialElements);
+  for (const path of constrainedUnslicedPaths) slicePaths.delete(path);
+  if (!slicePaths.size) return out;
+  const differentialKeys = new Set(differentialElements.map(normalizedDifferentialElement).map(snapshotElementKey).filter(Boolean));
+  return out.filter((element) => {
+    const key = snapshotElementKey(element);
+    if (key && differentialKeys.has(key)) return true;
+    const id = typeof element.id === 'string' ? element.id : '';
+    if (!id || id.includes(':')) return true;
+    for (const slicePath of slicePaths) {
+      if (id.startsWith(`${slicePath}.`)) return false;
+    }
+    return true;
+  });
 }
 
 function overlayDifferential(baseElements: Json[], differentialElements: Json[]): Json[] {
@@ -70,19 +111,25 @@ function overlayDifferential(baseElements: Json[], differentialElements: Json[])
       out.push(normalized);
     }
   }
-  return out;
+  return prunedInheritedUnslicedDescendants(out, differentialElements);
 }
 
-function baseSnapshotFor(sd: Json, indexes: PublisherCanonicalIndexes): Json[] | null {
+function baseSnapshotFor(
+  sd: Json,
+  indexes: PublisherCanonicalIndexes,
+  completedByUrl: Map<string, Json> = new Map(),
+): Json[] | null {
   const baseDefinition = canonicalNoVersion(sd.baseDefinition);
   if (!baseDefinition || baseDefinition === 'http://hl7.org/fhir/StructureDefinition/Base') return null;
+  const completedBase = completedByUrl.get(baseDefinition);
+  if (hasSnapshot(completedBase || {})) return clone(completedBase!.snapshot.element);
   const base = resolvePublisherResource(indexes, { resourceType: 'StructureDefinition', url: baseDefinition });
   return hasSnapshot(base || {}) ? clone(base!.snapshot.element) : null;
 }
 
-function generatedSnapshotElements(sd: Json, indexes: PublisherCanonicalIndexes): Json[] {
+function generatedSnapshotElements(sd: Json, indexes: PublisherCanonicalIndexes, completedByUrl = new Map<string, Json>()): Json[] {
   const differential = Array.isArray(sd.differential?.element) ? sd.differential.element : [];
-  const baseElements = baseSnapshotFor(sd, indexes);
+  const baseElements = baseSnapshotFor(sd, indexes, completedByUrl);
   if (!baseElements) return differential.map(normalizedDifferentialElement);
   return overlayDifferential(baseElements, differential);
 }
@@ -109,9 +156,9 @@ function bindableType(element: Json): boolean {
   });
 }
 
-function reconcileChoiceSliceBindings(sd: Json, indexes: PublisherCanonicalIndexes): Json {
+function reconcileChoiceSliceBindings(sd: Json, indexes: PublisherCanonicalIndexes, completedByUrl = new Map<string, Json>()): Json {
   if (!hasSnapshot(sd)) return sd;
-  const baseElements = baseSnapshotFor(sd, indexes);
+  const baseElements = baseSnapshotFor(sd, indexes, completedByUrl);
   if (!baseElements) return sd;
 
   const baseByPath = new Map<string, Json>();
@@ -153,17 +200,67 @@ function reconcileChoiceSliceBindings(sd: Json, indexes: PublisherCanonicalIndex
   return changed ? { ...sd, snapshot: { ...sd.snapshot, element: snapshotElements } } : sd;
 }
 
+function pruneSnapshotForDifferentialSlices(sd: Json): Json {
+  if (!hasSnapshot(sd)) return sd;
+  const differentialElements = Array.isArray(sd.differential?.element) ? sd.differential.element : [];
+  if (!differentialElements.length) return sd;
+  const pruned = prunedInheritedUnslicedDescendants(sd.snapshot.element, differentialElements);
+  return pruned.length === sd.snapshot.element.length ? sd : { ...sd, snapshot: { ...sd.snapshot, element: pruned } };
+}
+
 export function completeStructureDefinitionSnapshots(resources: Json[], indexes: PublisherCanonicalIndexes): Json[] {
+  const localByUrl = new Map<string, Json>();
+  for (const resource of resources) {
+    const url = canonicalNoVersion(resource.url);
+    if (resource.resourceType === 'StructureDefinition' && url) localByUrl.set(url, resource);
+  }
+
+  const completedByUrl = new Map<string, Json>();
+  const visiting = new Set<string>();
+
+  const complete = (resource: Json): Json => {
+    const url = canonicalNoVersion(resource.url);
+    if (url && completedByUrl.has(url)) return completedByUrl.get(url)!;
+    if (url && visiting.has(url)) return resource;
+    if (url) visiting.add(url);
+
+    const baseUrl = canonicalNoVersion(resource.baseDefinition);
+    if (baseUrl && localByUrl.has(baseUrl)) complete(localByUrl.get(baseUrl)!);
+
+    let completed = resource;
+    if (hasSnapshot(completed)) {
+      completed = pruneSnapshotForDifferentialSlices(completed);
+      completed = reconcileChoiceSliceBindings(completed, indexes, completedByUrl);
+    } else {
+      const snapshotElements = generatedSnapshotElements(completed, indexes, completedByUrl);
+      if (snapshotElements.length) {
+        completed = reconcileChoiceSliceBindings({
+          ...completed,
+          snapshot: {
+            element: snapshotElements,
+          },
+        }, indexes, completedByUrl);
+      }
+    }
+
+    if (url) {
+      visiting.delete(url);
+      completedByUrl.set(url, completed);
+    }
+    return completed;
+  };
+
   return resources.map((resource) => {
     if (resource.resourceType !== 'StructureDefinition') return resource;
-    if (hasSnapshot(resource)) return reconcileChoiceSliceBindings(resource, indexes);
-    const snapshotElements = generatedSnapshotElements(resource, indexes);
+    const completed = complete(resource);
+    if (hasSnapshot(completed)) return completed;
+    const snapshotElements = generatedSnapshotElements(completed, indexes, completedByUrl);
     if (!snapshotElements.length) return resource;
     return reconcileChoiceSliceBindings({
-      ...resource,
+      ...completed,
       snapshot: {
         element: snapshotElements,
       },
-    }, indexes);
+    }, indexes, completedByUrl);
   });
 }
