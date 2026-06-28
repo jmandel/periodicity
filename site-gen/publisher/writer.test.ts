@@ -51,6 +51,22 @@ describe('package DB writer', () => {
           json: JSON.stringify({ resourceType: 'ImplementationGuide', id: 'demo' }),
         }],
         conceptRows: [],
+        propertyRows: [{
+          key: 1,
+          resourceKey: 1,
+          code: 'abstract',
+          uri: 'http://hl7.org/fhir/concept-properties#notSelectable',
+          description: 'Abstract concept marker',
+          type: 'boolean',
+        }],
+        conceptPropertyRows: [{
+          key: 1,
+          resourceKey: 1,
+          conceptKey: 1,
+          propertyKey: 1,
+          code: 'abstract',
+          value: null,
+        }],
         valueSetCodeRows: [],
         indexedListRows: emptyIndexedLists,
       });
@@ -63,6 +79,8 @@ describe('package DB writer', () => {
           Id: 'demo',
           Web: 'index.html',
         });
+        expect(db.query('select Code, Type from Properties').get()).toEqual({ Code: 'abstract', Type: 'boolean' });
+        expect(db.query('select Code, Value from ConceptProperties').get()).toEqual({ Code: 'abstract', Value: null });
       } finally {
         db.close();
       }

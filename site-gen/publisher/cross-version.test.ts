@@ -7,7 +7,7 @@ import YAML from 'yaml';
 import { buildCanonicalIndex, buildCurrentCanonicalIndex } from './canonical';
 import { deriveIndexedListRows } from './indexed-lists';
 import { resolvePackages } from './packages';
-import { deriveConceptRows, deriveMetadataRows, deriveResourceRows, deriveValueSetCodeRows, resourceRef } from './rows';
+import { deriveCodeSystemPropertyRows, deriveConceptRows, deriveMetadataRows, deriveResourceRows, deriveValueSetCodeRows, resourceRef } from './rows';
 import { writePackageDbFile } from './writer';
 
 function readJson(path: string) {
@@ -74,6 +74,7 @@ describe('cross-version publisher fixture', () => {
         dependencies: buildCurrentCanonicalIndex([]),
       };
       const indexedListRows = deriveIndexedListRows(resources, keyByRef, indexes);
+      const codeSystemPropertyRows = deriveCodeSystemPropertyRows(resources, keyByRef);
       const outDb = join(dbRoot, 'package.db');
 
       writePackageDbFile(outDb, {
@@ -86,6 +87,8 @@ describe('cross-version publisher fixture', () => {
         }),
         resourceRows: resourceRows.rows,
         conceptRows: deriveConceptRows(resources, keyByRef),
+        propertyRows: codeSystemPropertyRows.propertyRows,
+        conceptPropertyRows: codeSystemPropertyRows.conceptPropertyRows,
         valueSetCodeRows: deriveValueSetCodeRows(resources, keyByRef),
         indexedListRows,
       });

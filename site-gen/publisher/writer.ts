@@ -2,13 +2,15 @@ import { Database } from 'bun:sqlite';
 import { mkdirSync, rmSync } from 'node:fs';
 import { dirname } from 'node:path';
 import type { IndexedListRows } from './indexed-lists';
-import type { ConceptRow, MetadataRow, ResourceRow, ValueSetCodeRow } from './rows';
+import type { ConceptPropertyRow, ConceptRow, MetadataRow, PropertyRow, ResourceRow, ValueSetCodeRow } from './rows';
 import { createPackageDbSchema } from './schema';
 
 export type PackageDbRows = {
   metadataRows: MetadataRow[];
   resourceRows: ResourceRow[];
   conceptRows: ConceptRow[];
+  propertyRows: PropertyRow[];
+  conceptPropertyRows: ConceptPropertyRow[];
   valueSetCodeRows: ValueSetCodeRow[];
   indexedListRows: IndexedListRows;
 };
@@ -67,6 +69,16 @@ function insertConceptRows(db: Database, rows: ConceptRow[]) {
   rows.forEach((row) => ins.run(row.key, row.resourceKey, row.parentKey, row.code, row.display, row.definition));
 }
 
+function insertPropertyRows(db: Database, rows: PropertyRow[]) {
+  const ins = db.prepare('INSERT INTO Properties (Key, ResourceKey, Code, Uri, Description, Type) VALUES (?,?,?,?,?,?)');
+  rows.forEach((row) => ins.run(row.key, row.resourceKey, row.code, row.uri, row.description, row.type));
+}
+
+function insertConceptPropertyRows(db: Database, rows: ConceptPropertyRow[]) {
+  const ins = db.prepare('INSERT INTO ConceptProperties (Key, ResourceKey, ConceptKey, PropertyKey, Code, Value) VALUES (?,?,?,?,?,?)');
+  rows.forEach((row) => ins.run(row.key, row.resourceKey, row.conceptKey, row.propertyKey, row.code, row.value));
+}
+
 function insertValueSetExpansions(
   db: Database,
   rows: ValueSetCodeRow[],
@@ -107,7 +119,9 @@ export function writePackageDbFile(outDb: string, rows: PackageDbRows, options: 
     run(options.timed, 'create schema', () => createPackageDbSchema(db));
     run(options.timed, 'metadata', () => insertMetadataRows(db, rows.metadataRows));
     run(options.timed, 'resources table', () => insertResourceRows(db, rows.resourceRows));
+    run(options.timed, 'properties table', () => insertPropertyRows(db, rows.propertyRows));
     run(options.timed, 'concepts table', () => insertConceptRows(db, rows.conceptRows));
+    run(options.timed, 'concept properties table', () => insertConceptPropertyRows(db, rows.conceptPropertyRows));
     run(options.timed, 'value set expansion table', () => insertValueSetExpansions(db, rows.valueSetCodeRows));
     run(options.timed, 'indexed terminology/resource lists', () => insertIndexedListRows(db, rows.indexedListRows));
     db.exec('COMMIT');

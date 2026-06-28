@@ -17,6 +17,29 @@ export type ConceptRow = {
   definition: string | null;
 };
 
+export type PropertyRow = {
+  key: number;
+  resourceKey: number;
+  code: string | null;
+  uri: string | null;
+  description: string | null;
+  type: string | null;
+};
+
+export type ConceptPropertyRow = {
+  key: number;
+  resourceKey: number;
+  conceptKey: number;
+  propertyKey: number | null;
+  code: string | null;
+  value: string | null;
+};
+
+export type CodeSystemPropertyRows = {
+  propertyRows: PropertyRow[];
+  conceptPropertyRows: ConceptPropertyRow[];
+};
+
 export type ResourceRow = {
   key: number;
   type: string;
@@ -203,8 +226,9 @@ export function deriveResourceRows(resources: Json[], resourceMeta: Map<string, 
   return { rows, keyByRef };
 }
 
-export function deriveConceptRows(resources: Json[], keyByRef: Map<string, number>): ConceptRow[] {
+function collectConceptRows(resources: Json[], keyByRef: Map<string, number>): { rows: ConceptRow[]; keyByConcept: WeakMap<Json, number> } {
   const rows: ConceptRow[] = [];
+  const keyByConcept = new WeakMap<Json, number>();
   function walk(resourceKey: number, concepts: any[], parentKey: number | null) {
     for (const c of concepts || []) {
       const row: ConceptRow = {
@@ -216,6 +240,7 @@ export function deriveConceptRows(resources: Json[], keyByRef: Map<string, numbe
         definition: scalarString(c.definition),
       };
       rows.push(row);
+      keyByConcept.set(c, row.key);
       if (Array.isArray(c.concept)) walk(resourceKey, c.concept, row.key);
     }
   }
@@ -223,7 +248,63 @@ export function deriveConceptRows(resources: Json[], keyByRef: Map<string, numbe
     const resourceKey = keyByRef.get(resourceRef(r));
     if (resourceKey) walk(resourceKey, r.concept || [], null);
   }
-  return rows;
+  return { rows, keyByConcept };
+}
+
+export function deriveConceptRows(resources: Json[], keyByRef: Map<string, number>): ConceptRow[] {
+  return collectConceptRows(resources, keyByRef).rows;
+}
+
+export function deriveCodeSystemPropertyRows(resources: Json[], keyByRef: Map<string, number>): CodeSystemPropertyRows {
+  const propertyRows: PropertyRow[] = [];
+  const conceptPropertyRows: ConceptPropertyRow[] = [];
+  const propertyKeyByResourceAndCode = new Map<string, number>();
+  const { keyByConcept } = collectConceptRows(resources, keyByRef);
+
+  for (const cs of resources.filter((r) => r.resourceType === 'CodeSystem')) {
+    const resourceKey = keyByRef.get(resourceRef(cs));
+    if (!resourceKey) continue;
+    for (const property of cs.property || []) {
+      const row: PropertyRow = {
+        key: propertyRows.length + 1,
+        resourceKey,
+        code: scalarString(property.code),
+        uri: scalarString(property.uri),
+        description: scalarString(property.description),
+        type: scalarString(property.type),
+      };
+      propertyRows.push(row);
+      if (row.code) propertyKeyByResourceAndCode.set(`${resourceKey}|${row.code}`, row.key);
+    }
+  }
+
+  function walk(resourceKey: number, concepts: Json[] = []) {
+    for (const concept of concepts) {
+      const conceptKey = keyByConcept.get(concept);
+      if (conceptKey) {
+        for (const property of concept.property || []) {
+          const code = scalarString(property.code);
+          conceptPropertyRows.push({
+            key: conceptPropertyRows.length + 1,
+            resourceKey,
+            conceptKey,
+            propertyKey: code ? propertyKeyByResourceAndCode.get(`${resourceKey}|${code}`) ?? null : null,
+            code,
+            // Match the current Java Publisher package.db contract.
+            value: null,
+          });
+        }
+      }
+      if (Array.isArray(concept.concept)) walk(resourceKey, concept.concept);
+    }
+  }
+
+  for (const cs of resources.filter((r) => r.resourceType === 'CodeSystem')) {
+    const resourceKey = keyByRef.get(resourceRef(cs));
+    if (resourceKey) walk(resourceKey, cs.concept || []);
+  }
+
+  return { propertyRows, conceptPropertyRows };
 }
 
 export function deriveValueSetCodeRows(

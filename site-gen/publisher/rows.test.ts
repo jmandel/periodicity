@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { deriveConceptRows, deriveMetadataRows, deriveResourceRows, deriveValueSetCodeRows } from './rows';
+import { deriveCodeSystemPropertyRows, deriveConceptRows, deriveMetadataRows, deriveResourceRows, deriveValueSetCodeRows } from './rows';
 
 describe('package DB row derivation', () => {
   test('derives deterministic metadata rows from explicit inputs', () => {
@@ -95,6 +95,43 @@ describe('package DB row derivation', () => {
       { key: 2, resourceKey: 2, parentKey: 1, code: 'child', display: 'Child', definition: 'Nested child' },
       { key: 3, resourceKey: 2, parentKey: null, code: 'sibling', display: 'Sibling', definition: null },
     ]);
+  });
+
+  test('derives CodeSystem property and concept-property rows with concept keys', () => {
+    const resources = [
+      {
+        resourceType: 'CodeSystem',
+        id: 'scores',
+        property: [
+          {
+            code: 'itemWeight',
+            uri: 'http://hl7.org/fhir/concept-properties#itemWeight',
+            type: 'decimal',
+          },
+        ],
+        concept: [
+          { code: 'zero', property: [{ code: 'itemWeight', valueDecimal: 0 }] },
+          { code: 'one', property: [{ code: 'itemWeight', valueDecimal: 1 }] },
+        ],
+      },
+    ];
+
+    expect(deriveCodeSystemPropertyRows(resources, new Map([['CodeSystem/scores', 7]]))).toEqual({
+      propertyRows: [
+        {
+          key: 1,
+          resourceKey: 7,
+          code: 'itemWeight',
+          uri: 'http://hl7.org/fhir/concept-properties#itemWeight',
+          description: null,
+          type: 'decimal',
+        },
+      ],
+      conceptPropertyRows: [
+        { key: 1, resourceKey: 7, conceptKey: 1, propertyKey: 1, code: 'itemWeight', value: null },
+        { key: 2, resourceKey: 7, conceptKey: 2, propertyKey: 1, code: 'itemWeight', value: null },
+      ],
+    });
   });
 
   test('derives Resources rows and the resource key map', () => {

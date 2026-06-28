@@ -42,6 +42,7 @@ import {
 import { configuredAutoOidRoot, deriveAutoOidAssignments, parseOidsIni, type OidAssignments } from './oids';
 import {
   deriveConceptRows,
+  deriveCodeSystemPropertyRows,
   deriveMetadataRows,
   deriveResourceRows,
   deriveValueSetCodeRows,
@@ -482,12 +483,15 @@ async function main() {
   const resourceRows = timed('derive resource rows', () => deriveResourceRows(resources, resourceMeta, cfg));
   const keyByRef = resourceRows.keyByRef;
   const conceptRows = timed('derive concept rows', () => deriveConceptRows(resources, keyByRef));
+  const codeSystemPropertyRows = timed('derive code system property rows', () => deriveCodeSystemPropertyRows(resources, keyByRef));
   const valueSetCodeRows = timed('derive value set expansion rows', () => deriveValueSetCodeRows(resources, keyByRef, valueSetExpansions));
   const indexedListRows = timed('derive indexed terminology/resource list rows', () => deriveIndexedListRows(resources, keyByRef, indexesWithTerminology, { oidAssignments }));
   writePackageDbFile(outDb, {
     metadataRows,
     resourceRows: resourceRows.rows,
     conceptRows,
+    propertyRows: codeSystemPropertyRows.propertyRows,
+    conceptPropertyRows: codeSystemPropertyRows.conceptPropertyRows,
     valueSetCodeRows,
     indexedListRows,
   }, { timed });
