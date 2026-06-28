@@ -9,7 +9,7 @@ export type CanonicalKey = {
 
 export type IndexedResource = {
   key: CanonicalKey;
-  package?: { name: string; version: string };
+  package?: { name: string; version: string; dir?: string; manifest?: Json };
   sourcePath: string;
   resource: Json;
 };

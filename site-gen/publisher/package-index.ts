@@ -3,7 +3,7 @@ import { dirname, join, relative } from 'node:path';
 import type { Json, ResolvedPackage } from './packages';
 
 export type PackageResourceEntry = {
-  package: { name: string; version: string };
+  package: { name: string; version: string; dir: string; manifest: Json };
   sourcePath: string;
   resource: Json;
 };
@@ -39,7 +39,7 @@ export function buildPackageResourceIndex(
     const files = packageResourceFiles(pkg);
     for (const file of files) {
       entries.push({
-        package: { name: pkg.name, version: pkg.version },
+        package: { name: pkg.name, version: pkg.version, dir: pkg.dir, manifest: pkg.manifest },
         sourcePath: file,
         resource: readJson(file),
       });

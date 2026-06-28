@@ -1,4 +1,7 @@
 import { describe, expect, test } from 'bun:test';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { CanonicalIndex, IndexedResource } from './canonical';
 import {
   additionalBindingValueSetUrls,
@@ -209,6 +212,26 @@ describe('publisher list-index helpers', () => {
       { resourceType: 'ValueSet', id: 'v2-0203', url: 'http://terminology.hl7.org/ValueSet/v2-0203' },
       indexedValueSetSource('hl7.fhir.r6.core', '6.0.0-ballot3'),
     )).toBe('http://hl7.org/fhir/6.0.0-ballot3/v2/0203/index.html');
+  });
+
+  test('uses package spec.internals paths before guessing canonical-tail web paths', () => {
+    const root = mkdtempSync(join(tmpdir(), 'publisher-spec-internals-'));
+    const packageDir = join(root, 'hl7.fhir.r4.core#4.0.1', 'package');
+    mkdirSync(join(packageDir, 'other'), { recursive: true });
+    writeFileSync(join(packageDir, 'other', 'spec.internals'), JSON.stringify({
+      paths: {
+        'http://hl7.org/fhir/ValueSet/yesnodontknow': 'valueset-example-yesnodontknow.html',
+      },
+    }));
+    expect(externalValueSetWeb(
+      { resourceType: 'ValueSet', id: 'yesnodontknow', url: 'http://hl7.org/fhir/ValueSet/yesnodontknow' },
+      {
+        key: { resourceType: 'ValueSet', url: 'http://hl7.org/fhir/ValueSet/yesnodontknow' },
+        package: { name: 'hl7.fhir.r4.core', version: '4.0.1', dir: packageDir, manifest: { url: 'http://hl7.org/fhir/R4' } },
+        sourcePath: join(packageDir, 'ValueSet-yesnodontknow.json'),
+        resource: { resourceType: 'ValueSet', url: 'http://hl7.org/fhir/ValueSet/yesnodontknow' },
+      },
+    )).toBe('http://hl7.org/fhir/R4/valueset-example-yesnodontknow.html');
   });
 
   test('derives indexed ValueSet and CodeSystem list rows without SQLite', () => {
@@ -522,5 +545,42 @@ describe('publisher list-index helpers', () => {
         web: 'ValueSet-profile-example_WeightUnits.html',
       },
     ]);
+  });
+
+  test('does not derive CodeSystem usage from imported ValueSets unless directly scanned', () => {
+    const localValueSet = {
+      resourceType: 'ValueSet',
+      id: 'local',
+      url: 'http://example.org/ValueSet/local',
+      compose: { include: [{ valueSet: ['http://example.org/ValueSet/imported'] }] },
+    };
+    const importedValueSet = {
+      resourceType: 'ValueSet',
+      id: 'imported',
+      url: 'http://example.org/ValueSet/imported',
+      compose: { include: [{ system: 'http://example.org/CodeSystem/external' }] },
+    };
+    const externalCodeSystem = {
+      resourceType: 'CodeSystem',
+      id: 'external',
+      url: 'http://example.org/CodeSystem/external',
+    };
+    const core = emptyIndex();
+    core.byCanonical.set(`ValueSet|${importedValueSet.url}`, indexedValueSet(importedValueSet));
+    core.byCanonical.set(`CodeSystem|${externalCodeSystem.url}`, {
+      key: { resourceType: 'CodeSystem', url: externalCodeSystem.url },
+      package: { name: 'example.core', version: '1.0.0' },
+      sourcePath: '/packages/example.core/CodeSystem-external.json',
+      resource: externalCodeSystem,
+    });
+
+    const rows = deriveIndexedListRows(
+      [localValueSet],
+      new Map([['ValueSet/local', 1]]),
+      { current: emptyIndex(), core, dependencies: emptyIndex() },
+    );
+
+    expect(rows.valueSetSystemRows.map((row) => row.url)).toContain(externalCodeSystem.url);
+    expect(rows.codeSystemRows.map((row) => row.url)).not.toContain(externalCodeSystem.url);
   });
 });

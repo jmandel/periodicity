@@ -9,10 +9,13 @@ import {
 import { fhirPublicationBaseForCorePackage } from './fhir-versions';
 import { resourceOidValues, type OidAssignments } from './oids';
 import { pageFor, resourceRef } from './rows';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 type Json = Record<string, any>;
 
 export type ListRef = { type: 'Questionnaire' | 'StructureDefinition' | 'ValueSet'; resource: Json; web?: string };
+type CodeSystemUsageRef = { type: string; resource: Json; web?: string };
 
 export type ValueSetListRow = {
   key: number;
@@ -190,11 +193,39 @@ function idFromCanonical(url: string): string {
   return url.replace(/\|.+$/, '').split('/').pop() || url;
 }
 
+const specInternalsPathCache = new Map<string, Map<string, string>>();
+
+function specInternalsPaths(source?: IndexedResource): Map<string, string> | null {
+  const dir = source?.package?.dir;
+  if (!dir) return null;
+  const cached = specInternalsPathCache.get(dir);
+  if (cached) return cached;
+  const path = join(dir, 'other', 'spec.internals');
+  if (!existsSync(path)) return null;
+  const json = JSON.parse(readFileSync(path, 'utf8').replace(/^\uFEFF/, ''));
+  const paths = new Map<string, string>();
+  for (const [canonical, webPath] of Object.entries(json.paths || {})) {
+    if (typeof canonical === 'string' && typeof webPath === 'string') paths.set(canonical, webPath);
+  }
+  specInternalsPathCache.set(dir, paths);
+  return paths;
+}
+
+function packageWebPath(resource: Json, source?: IndexedResource): string | null {
+  if (!resource?.url) return null;
+  const fhirBase = source?.package ? fhirPublicationBaseForCorePackage(source.package) : null;
+  if (!fhirBase) return null;
+  const relativePath = specInternalsPaths(source)?.get(resource.url);
+  return relativePath ? new URL(relativePath, fhirBase).toString() : null;
+}
+
 export function externalValueSetWeb(vs: Json, source?: IndexedResource): string {
   if (source?.package?.name === 'fhir.dicom' && vs.id) return `http://tx.fhir.org/r4/ValueSet/${vs.id}`;
   if (source?.package?.name?.startsWith('hl7.terminology') && source.package.version && vs.id) {
     return `http://terminology.hl7.org/${source.package.version}/ValueSet-${vs.id}.html`;
   }
+  const metadataPath = packageWebPath(vs, source);
+  if (metadataPath) return metadataPath;
   const fhirBase = source?.package ? fhirPublicationBaseForCorePackage(source.package) : null;
   if (fhirBase && vs.id && vs.url?.startsWith('http://terminology.hl7.org/ValueSet/v3-')) {
     return `${fhirBase}v3/${vs.id.replace(/^v3-/, '')}/vs.html`;
@@ -367,7 +398,51 @@ export function resolveCodeSystemForList(
 ): Json | undefined {
   const clean = canonicalNoVersion(system);
   if (!clean || clean !== system) return undefined;
-  return resolvePublisherResource(indexes, { resourceType: 'CodeSystem', url: clean });
+  const codeSystem = resolvePublisherResource(indexes, { resourceType: 'CodeSystem', url: clean });
+  // The Java Publisher's WorkerContext exposes SNOMED CT as a built-in
+  // terminology system for this cross-view list even when package metadata is
+  // a not-present stub. Other not-present stubs are not returned by
+  // fetchResource(CodeSystem.class, ...), so do not list them here.
+  if (codeSystem?.content === 'not-present' && clean !== 'http://snomed.info/sct') return undefined;
+  return codeSystem;
+}
+
+function conceptMapScopeValueSetUrls(conceptMap: Json): string[] {
+  const urls = [
+    conceptMap.sourceUri,
+    conceptMap.sourceCanonical,
+    conceptMap.sourceScopeUri,
+    conceptMap.sourceScopeCanonical,
+    conceptMap.targetUri,
+    conceptMap.targetCanonical,
+    conceptMap.targetScopeUri,
+    conceptMap.targetScopeCanonical,
+  ];
+  return [...new Set(urls.map(canonicalNoVersion).filter(Boolean))] as string[];
+}
+
+function conceptMapDirectSystems(conceptMap: Json): string[] {
+  return [...new Set((conceptMap.group || []).flatMap((group: any) => [group.source, group.target]).map(canonicalNoVersion).filter(Boolean))] as string[];
+}
+
+function operationDefinitionBindingValueSetUrls(operationDefinition: Json): string[] {
+  return [...new Set((operationDefinition.parameter || []).flatMap((parameter: any) => bindingValueSetUrls(parameter.binding)))] as string[];
+}
+
+function addCodeSystemUsage(
+  refs: Map<string, Map<string, CodeSystemUsageRef>>,
+  system: string | null | undefined,
+  ref: CodeSystemUsageRef,
+) {
+  const clean = canonicalNoVersion(system || undefined);
+  if (!clean || clean.includes('|') || clean.includes('?')) return;
+  const key = `${ref.type}/${ref.resource.id || ref.resource.url || clean}`;
+  if (!refs.has(clean)) refs.set(clean, new Map());
+  refs.get(clean)!.set(key, ref);
+}
+
+function sortedCodeSystemUsageRefs(refs: Map<string, CodeSystemUsageRef>): CodeSystemUsageRef[] {
+  return [...refs.values()].sort((a, b) => `${a.type}/${a.resource.id || ''}`.localeCompare(`${b.type}/${b.resource.id || ''}`));
 }
 
 export function deriveIndexedListRows(
@@ -403,6 +478,42 @@ export function deriveIndexedListRows(
   const findValueSet = (url: string): Json | undefined => containedByUrl.get(url) || resolveValueSetForList(url, indexes);
   const findValueSetSource = (url: string): IndexedResource | undefined => resolveValueSetSourceForList(url, indexes);
   const findCodeSystem = (url: string): Json | undefined => resolveCodeSystemForList(url, indexes);
+  const codeSystemUsageRefs = (mode: 'differential' | 'snapshot'): Map<string, Map<string, CodeSystemUsageRef>> => {
+    const usage = new Map<string, Map<string, CodeSystemUsageRef>>();
+    const addSystemsFromValueSet = (vs: Json | undefined, web?: string) => {
+      if (!vs) return;
+      for (const system of valueSetDirectSystems(vs)) addCodeSystemUsage(usage, system, { type: 'ValueSet', resource: vs, web });
+    };
+    const addBindingValueSets = (urls: string[]) => {
+      for (const url of urls) {
+        const vs = findValueSet(url);
+        addSystemsFromValueSet(vs, vs ? containedWeb.get(vs) : undefined);
+      }
+    };
+    const scan = (resource: Json) => {
+      let scanContained = false;
+      if (resource.resourceType === 'StructureDefinition') {
+        addBindingValueSets(structureDefinitionBindingValueSetUrls(resource, mode));
+        scanContained = true;
+      } else if (resource.resourceType === 'Questionnaire') {
+        addBindingValueSets(questionnaireAnswerValueSetUrls(resource));
+        scanContained = true;
+      } else if (resource.resourceType === 'ValueSet') {
+        addSystemsFromValueSet(resource, containedWeb.get(resource));
+        scanContained = true;
+      } else if (resource.resourceType === 'ConceptMap') {
+        addBindingValueSets(conceptMapScopeValueSetUrls(resource));
+        for (const system of conceptMapDirectSystems(resource)) addCodeSystemUsage(usage, system, { type: 'ConceptMap', resource });
+        scanContained = true;
+      } else if (resource.resourceType === 'OperationDefinition') {
+        addBindingValueSets(operationDefinitionBindingValueSetUrls(resource));
+        scanContained = true;
+      }
+      if (scanContained) for (const contained of resource.contained || []) scan(contained);
+    };
+    for (const resource of resources) scan(resource);
+    return usage;
+  };
   const localBindings = new Map<string, ListRef[]>();
   const snapshotBindings = new Map<string, ListRef[]>();
   const artifactValueSetRefs = new Map<string, ListRef[]>();
@@ -515,8 +626,18 @@ export function deriveIndexedListRows(
     addValueSetRow(3, vs, mergeRefs(snapshotBindings.get(vs.url), artifactValueSetRefs.get(vs.url), valueSetImportRefs.get(vs.url)), true);
   }
 
-  const codeSystemRows: { key: number; view: number; cs: Json; refs: Json[]; local: boolean; system: string }[] = [];
-  const addCodeSystemRow = (view: number, system: string, refs: Json[], local: boolean) => {
+  const codeSystemRows: { key: number; view: number; cs: Json; refs: CodeSystemUsageRef[]; local: boolean; system: string }[] = [];
+  const codeSystemRefWeb = (ref: CodeSystemUsageRef): string => {
+    const refResource = ref.resource;
+    if (ref.web) return ref.web;
+    const contained = containedWeb.get(refResource);
+    if (contained) return contained;
+    if (ref.type === 'ValueSet' && !keyByRef.has(resourceRef(refResource))) {
+      return externalValueSetWeb(refResource, findValueSetSource(refResource.url));
+    }
+    return pageFor(ref.type, refResource.id);
+  };
+  const addCodeSystemRow = (view: number, system: string, refs: CodeSystemUsageRef[], local: boolean) => {
     if (system.includes('|')) return;
     const cs = findCodeSystem(system);
     if (!cs) return;
@@ -535,13 +656,15 @@ export function deriveIndexedListRows(
     });
     for (const oid of resourceOidValues(cs, local ? options.oidAssignments : undefined)) rows.codeSystemOidRows.push({ codeSystemListKey: key, oid });
     for (const ref of refs) {
+      const refResource = ref.resource;
+      if (!refResource.id) continue;
       rows.codeSystemRefRows.push({
         codeSystemListKey: key,
-        type: 'ValueSet',
-        id: ref.id,
+        type: ref.type,
+        id: refResource.id || refResource.url,
         resourceKey: local ? resourceKey : null,
-        title: ref.title ?? ref.name ?? ref.id,
-        web: containedWeb.get(ref) || (localByUrl.has(ref.url) ? pageFor('ValueSet', ref.id) : externalValueSetWeb(ref, findValueSetSource(ref.url))),
+        title: refResource.title ?? refResource.name ?? refResource.id ?? refResource.url,
+        web: codeSystemRefWeb(ref),
       });
     }
     codeSystemRows.push({ key, view, cs, refs, local, system });
@@ -549,21 +672,14 @@ export function deriveIndexedListRows(
 
   for (const cs of localCodeSystems) addCodeSystemRow(1, cs.url, [], true);
 
-  const localUsedValueSets = valueSetRows.filter((row) => row.view === 2).map((row) => row.vs);
-  const systemsFor = (valueSets: Json[]) => {
-    const refs = new Map<string, Json[]>();
-    for (const vs of valueSets) {
-      for (const system of valueSetDirectSystems(vs)) refs.set(system, [...(refs.get(system) || []), vs]);
-    }
-    return [...refs.entries()].sort(([a], [b]) => a.localeCompare(b));
-  };
-  for (const [system, refs] of systemsFor(localUsedValueSets)) addCodeSystemRow(2, system, refs, Boolean(localByUrl.get(system)));
+  for (const [system, refs] of [...codeSystemUsageRefs('differential').entries()].sort(([a], [b]) => a.localeCompare(b))) {
+    addCodeSystemRow(2, system, sortedCodeSystemUsageRefs(refs), localCodeSystemUrls.has(system));
+  }
 
-  const allDependencyValueSets = valueSetRows.filter((r) => r.view === 3).map((r) => r.vs);
-  const dependencySystems = systemsFor(allDependencyValueSets)
+  const dependencySystems = [...codeSystemUsageRefs('snapshot').entries()]
     .filter(([system]) => findCodeSystem(system))
     .sort(([a], [b]) => sourcePriority(a, localCodeSystemUrls) - sourcePriority(b, localCodeSystemUrls) || a.localeCompare(b));
-  for (const [system, refs] of dependencySystems) addCodeSystemRow(3, system, refs, Boolean(localByUrl.get(system)));
+  for (const [system, refs] of dependencySystems) addCodeSystemRow(3, system, sortedCodeSystemUsageRefs(refs), localCodeSystemUrls.has(system));
 
   return rows;
 }
