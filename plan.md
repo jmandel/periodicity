@@ -179,20 +179,23 @@ Known useful state:
   local `dom-3` evaluator now uses fhirpath model metadata to detect
   `reference`, `canonical`, `uri`, and `url` descendants, including contained
   resources and primitive companion extensions; sliced primitive `ele-1`
-  validation now treats raw JSON primitive values as present. Current SDC
-  triage input is 5 min-cardinality errors and 65 warnings.
+  validation now treats raw JSON primitive values as present. Ordinary
+  FHIRPath constraints now resolve local references through the in-memory
+  resource index, so SDC's `Task.focus.resolve()` invariants evaluate without
+  async/network warnings. Current SDC triage input is warning-only: 60 `dom-6`
+  narrative warnings plus three authored warning-level constraints.
 - A no-Java/no-compare Da Vinci CRD pilot run now reaches package DB generation
   from a blank package cache and replays offline without downloads. CRD includes
   authored JSON StructureDefinitions outside SUSHI's generated output; the Bun
   publisher now completes missing local snapshots from a base snapshot plus the
   differential, or from the normalized differential for logical specializations
   whose base is FHIR `Base`. CRD is now warning-only in the no-Java/no-compare
-  smoke: 18 `dom-6` narrative warnings and one async `resolve()` FHIRPath
-  warning. The previous 6 false `ext-1` errors and 2 false
+  smoke: 18 `dom-6` narrative warnings and no FHIRPath evaluation warnings.
+  The previous 6 false `ext-1` errors, 2 false
   `Appointment.participant` slice errors were fixed by type-aware Extension
   FHIRPath evaluation and relative `resolve()` profile-discriminator matching;
-  the SDC-driven `dom-3` and sliced primitive `ele-1` fixes keep CRD
-  warning-only.
+  the SDC-driven `dom-3`, sliced primitive `ele-1`, and ordinary local
+  `resolve()` fixes keep CRD warning-only.
 - The Pages workflow now runs publisher unit tests in the normal build, caches
   Bun install data and FHIR packages for warm deploy builds, and runs both the
   Cycle blank-cache smoke and IPS pilot on a weekly/manual non-deploying safety

@@ -499,6 +499,65 @@ describe('publisher example validation', () => {
     }]);
   });
 
+  test('evaluates FHIRPath resolve constraints against local resources', () => {
+    const profile = {
+      resourceType: 'StructureDefinition',
+      url: 'https://example.org/StructureDefinition/task',
+      type: 'Task',
+      fhirVersion: '4.0.1',
+      snapshot: {
+        element: [
+          {
+            id: 'Task',
+            path: 'Task',
+            min: 0,
+            max: '*',
+            constraint: [{
+              key: 'task-shape',
+              severity: 'error',
+              human: 'Either fulfill a ServiceRequest or complete a questionnaire input',
+              expression: "(code.coding.exists(code='fulfill' and system='http://hl7.org/fhir/CodeSystem/task-code') and (focus.resolve() is ServiceRequest) and input.exists(type.coding.exists(system='http://hl7.org/fhir/uv/sdc/CodeSystem/temp' and code='questionnaire')).not()) or (code.coding.exists(code='complete-questionnaire' and system='http://hl7.org/fhir/uv/sdc/CodeSystem/temp') and focus.exists().not() and input.exists(type.coding.exists(system='http://hl7.org/fhir/uv/sdc/CodeSystem/temp' and code='questionnaire')))",
+            }],
+          },
+        ],
+      },
+    };
+    const serviceRequest = { resourceType: 'ServiceRequest', id: 'example' };
+    const patient = { resourceType: 'Patient', id: 'example' };
+    const fulfill = {
+      resourceType: 'Task',
+      id: 'fulfill',
+      code: { coding: [{ system: 'http://hl7.org/fhir/CodeSystem/task-code', code: 'fulfill' }] },
+      focus: { reference: 'ServiceRequest/example' },
+    };
+    const completeQuestionnaire = {
+      resourceType: 'Task',
+      id: 'complete',
+      code: { coding: [{ system: 'http://hl7.org/fhir/uv/sdc/CodeSystem/temp', code: 'complete-questionnaire' }] },
+      input: [{
+        type: { coding: [{ system: 'http://hl7.org/fhir/uv/sdc/CodeSystem/temp', code: 'questionnaire' }] },
+        valueCanonical: 'https://example.org/Questionnaire/q',
+      }],
+    };
+    const wrongFocus = {
+      ...fulfill,
+      id: 'wrong-focus',
+      focus: { reference: 'Patient/example' },
+    };
+
+    expect(validateResourceAgainstProfile(fulfill, profile, [profile, serviceRequest, fulfill])).toEqual([]);
+    expect(validateResourceAgainstProfile(completeQuestionnaire, profile, [profile, completeQuestionnaire])).toEqual([]);
+    expect(validateResourceAgainstProfile(wrongFocus, profile, [profile, patient, wrongFocus])).toEqual([{
+      severity: 'error',
+      code: 'fhirpath-constraint',
+      message: 'task-shape failed: Either fulfill a ServiceRequest or complete a questionnaire input',
+      resourceRef: 'Task/wrong-focus',
+      profileUrl: profile.url,
+      elementId: 'Task',
+      path: 'Task',
+    }]);
+  });
+
   test('evaluates standard Extension ext-1 against JSON choice values', () => {
     const profile = {
       resourceType: 'StructureDefinition',

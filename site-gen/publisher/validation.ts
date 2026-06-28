@@ -1,4 +1,5 @@
 import { canonicalNoVersion, resolvePublisherResource, type PublisherCanonicalIndexes } from './canonical';
+import { createRequire } from 'node:module';
 import * as fhirpath from 'fhirpath';
 import r4Model from 'fhirpath/fhir-context/r4';
 import r5Model from 'fhirpath/fhir-context/r5';
@@ -15,6 +16,9 @@ import {
 import { stableJson } from './tx-cache';
 
 export type Json = Record<string, any>;
+
+const require = createRequire(import.meta.url);
+const { ResourceNode } = require('fhirpath/src/types');
 
 export type ValidationSeverity = 'error' | 'warning';
 
@@ -506,20 +510,24 @@ function elementContext(resource: Json, profile: Json, element: Json, runtime: V
 
 function buildResourceLookup(resources: Json[]): Map<string, Json> {
   const out = new Map<string, Json>();
-  for (const resource of resources) {
+  const index = (resource: Json, fullUrl?: string) => {
     if (resource.id) {
       out.set(String(resource.id), resource);
       out.set(resourceRef(resource), resource);
     }
+    if (typeof resource.url === 'string') {
+      out.set(resource.url, resource);
+      if (typeof resource.version === 'string') out.set(`${resource.url}|${resource.version}`, resource);
+    }
+    if (fullUrl) out.set(fullUrl, resource);
+  };
+  for (const resource of resources) {
+    index(resource);
     if (resource.resourceType === 'Bundle') {
       for (const entry of resource.entry || []) {
         const child = entry.resource;
         if (!child?.resourceType) continue;
-        if (child.id) {
-          out.set(String(child.id), child);
-          out.set(resourceRef(child), child);
-        }
-        if (typeof entry.fullUrl === 'string') out.set(entry.fullUrl, child);
+        index(child, typeof entry.fullUrl === 'string' ? entry.fullUrl : undefined);
       }
     }
   }
@@ -567,6 +575,61 @@ function fhirPathPasses(result: unknown): boolean {
 
 function constraintLabel(constraint: Json): string {
   return constraint.key || constraint.human || constraint.expression || '(constraint)';
+}
+
+function referenceString(value: any): string | null {
+  const data = fhirpath.util?.valData ? fhirpath.util.valData(value) : value;
+  if (typeof data === 'string') return data;
+  if (typeof data?.reference === 'string') return data.reference;
+  return null;
+}
+
+function containedResourceNode(reference: string, input: any, ctx: any): any | null {
+  if (!reference.startsWith('#') || typeof input?.getParentResource !== 'function') return null;
+  const parentNode = input.getParentResource();
+  const parentResource = fhirpath.util?.valData ? fhirpath.util.valData(parentNode) : parentNode?.data;
+  const id = reference.slice(1);
+  const contained = Array.isArray(parentResource?.contained) ? parentResource.contained : [];
+  const child = contained.find((resource: Json) => resource?.id === id);
+  if (!child) return null;
+  const index = contained.indexOf(child);
+  const path = parentNode?.path ? `${parentNode.path}.contained` : 'contained';
+  return ResourceNode.makeResNode(ctx, child, parentNode, path, null, null, 'contained', index >= 0 ? index : null);
+}
+
+function localResolveInput(input: any, runtime: ValidationRuntime, ctx: any): any[] {
+  const reference = referenceString(input);
+  if (!reference) return [];
+
+  const contained = containedResourceNode(reference, input, ctx);
+  if (contained) return [contained];
+
+  const [base, fragment] = reference.split('#');
+  const target = base ? runtime.resourcesByRef.get(base) : null;
+  if (!target) return [];
+
+  if (fragment) {
+    const containedResources = Array.isArray(target.contained) ? target.contained : [];
+    const child = containedResources.find((resource: Json) => resource?.id === fragment);
+    return child ? [ResourceNode.makeResNode(ctx, child, null, null, null, null)] : [];
+  }
+
+  return [ResourceNode.makeResNode(ctx, target, null, null, null, null)];
+}
+
+function fhirPathOptions(runtime: ValidationRuntime): Json {
+  return {
+    traceFn: () => {},
+    userInvocationTable: {
+      resolve: {
+        arity: { 0: [] },
+        internalStructures: true,
+        fn(this: any, inputs: any[]) {
+          return (inputs || []).flatMap((input) => localResolveInput(input, runtime, this));
+        },
+      },
+    },
+  };
 }
 
 function fhirPathType(model: Json | undefined, path: string | undefined): string | undefined {
@@ -652,7 +715,7 @@ function evaluateKnownConstraint(resource: Json, constraint: Json, runtime: Vali
 function evaluateFhirPathConstraint(resource: Json, element: Json, context: PathValue, constraint: Json, runtime: ValidationRuntime): unknown {
   const known = evaluateKnownConstraint(resource, constraint, runtime, context);
   if (known !== null) return [known];
-  return fhirpath.evaluate(context.value, { base: fhirPathBaseForContext(element), expression: constraint.expression }, { resource }, runtime.fhirPathModel, { traceFn: () => {} });
+  return fhirpath.evaluate(context.value, { base: fhirPathBaseForContext(element), expression: constraint.expression }, { resource }, runtime.fhirPathModel, fhirPathOptions(runtime));
 }
 
 function fhirPathBaseForContext(element: Json): string | undefined {
@@ -697,7 +760,7 @@ function checkFhirPathConstraints(args: {
       try {
         const known = evaluateKnownConstraint(resource, constraint, runtime);
         const result = known === null
-          ? fhirpath.evaluate(resource, expression, { resource }, runtime.fhirPathModel, { traceFn: () => {} })
+          ? fhirpath.evaluate(resource, expression, { resource }, runtime.fhirPathModel, fhirPathOptions(runtime))
           : [known];
         if (fhirPathPasses(result)) continue;
         issues.push({
