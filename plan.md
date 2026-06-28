@@ -202,8 +202,10 @@ Known useful state:
 - The Pages workflow now runs publisher unit tests in the normal build, caches
   Bun install data and FHIR packages for warm deploy builds, and runs the
   Cycle, IPS, SDC, and Da Vinci CRD publisher pilots on a weekly/manual
-  non-deploying safety job in the same workflow. The scheduled safety job uses
-  a separate
+  non-deploying safety job in the same workflow. The safety job also caches
+  Bun install data and the shared FHIR package cache so recurring Java
+  Publisher comparisons do not depend on a completely cold global package
+  cache. The scheduled safety job uses a separate
   concurrency group so it cannot cancel a Pages deploy.
 - Package registry fetches are bounded by
   `PUBLISHER_PACKAGE_DOWNLOAD_TIMEOUT_MS` so a stalled registry cannot hang the

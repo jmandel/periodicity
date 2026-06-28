@@ -42,6 +42,14 @@ jobs:
           key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
           restore-keys: |
             ${{ runner.os }}-bun-
+      - name: Cache FHIR packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.fhir/packages
+          key: ${{ runner.os }}-fhir-publisher-safety-${{ hashFiles('bun.lock', 'sushi-config.yaml', 'input/fsh/**/*.fsh', 'site-gen/publisher/**/*.ts', 'scripts/check-publisher-*.ts') }}
+          restore-keys: |
+            ${{ runner.os }}-fhir-publisher-safety-
+            ${{ runner.os }}-fhir-
       - name: Install deps
         run: bun install --frozen-lockfile
       - name: Install native build deps
