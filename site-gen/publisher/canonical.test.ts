@@ -1,11 +1,16 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, test } from 'bun:test';
 import {
+  buildCanonicalIndex,
   buildCurrentCanonicalIndex,
   resolvePackageEntry,
   resolvePublisherResource,
   type CanonicalIndex,
   type IndexedResource,
 } from './canonical';
+import type { ResolvedPackage } from './packages';
 
 function emptyIndex(): CanonicalIndex {
   return {
@@ -28,6 +33,23 @@ function indexed(resourceType: string, url: string, packageName: string, marker:
 function add(index: CanonicalIndex, entry: IndexedResource) {
   index.byCanonical.set(`${entry.key.resourceType}|${entry.key.url}`, entry);
   if (entry.key.resourceType === 'CodeSystem') index.byCodeSystemUrl.set(entry.key.url, entry);
+}
+
+function fixturePackage(root: string, name: string, version: string, resources: Record<string, any>[]): ResolvedPackage {
+  const dir = join(root, `${name}-${version}`);
+  mkdirSync(dir, { recursive: true });
+  for (const resource of resources) {
+    writeFileSync(join(dir, `${resource.resourceType}-${resource.id}.json`), JSON.stringify(resource));
+  }
+  writeFileSync(join(dir, 'package.json'), JSON.stringify({ name, version }));
+  return {
+    name,
+    version,
+    dir,
+    manifest: { name, version },
+    acquisition: { source: 'cache', packageDir: dir },
+    resolution: { role: 'declared', loadDependencies: false },
+  };
 }
 
 describe('publisher canonical resolver', () => {
@@ -62,6 +84,28 @@ describe('publisher canonical resolver', () => {
       resourceType: 'CodeSystem',
       url: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
     })?.marker).toBe('tho-cs');
+  });
+
+  test('indexes preferred THO package resources when multiple packages carry the same canonical', () => {
+    const root = mkdtempSync(join(tmpdir(), 'canonical-index-'));
+    try {
+      const url = 'http://terminology.hl7.org/CodeSystem/v3-RoleCode';
+      const oldXver = fixturePackage(root, 'hl7.fhir.uv.xver-r5.r4', '0.1.0', [
+        { resourceType: 'CodeSystem', id: 'v3-RoleCode', url, version: '2.2.0', marker: 'xver' },
+      ]);
+      const oldTho = fixturePackage(root, 'hl7.terminology.r4', '7.1.0', [
+        { resourceType: 'CodeSystem', id: 'v3-RoleCode', url, version: '3.0.0', marker: 'tho-7.1' },
+      ]);
+      const newTho = fixturePackage(root, 'hl7.terminology.r4', '7.2.0', [
+        { resourceType: 'CodeSystem', id: 'v3-RoleCode', url, version: '4.0.0', marker: 'tho-7.2' },
+      ]);
+
+      const index = buildCanonicalIndex([oldXver, oldTho, newTho]);
+      expect(index.byCanonical.get(`CodeSystem|${url}`)?.resource.marker).toBe('tho-7.2');
+      expect(index.byCodeSystemUrl.get(url)?.resource.marker).toBe('tho-7.2');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   test('uses terminology metadata as a CodeSystem fallback only after packages', () => {

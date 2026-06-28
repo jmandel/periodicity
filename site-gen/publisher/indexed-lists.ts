@@ -71,7 +71,11 @@ export type IndexedListRows = {
 };
 
 export function packageSourceLabel(indexes: { core: CanonicalIndex; dependencies: CanonicalIndex }, system: string): string | null {
-  const entry = indexes.dependencies.byCodeSystemUrl.get(system) || indexes.core.byCodeSystemUrl.get(system);
+  const coreEntry = indexes.core.byCodeSystemUrl.get(system);
+  const dependencyEntry = indexes.dependencies.byCodeSystemUrl.get(system);
+  const entry = system.startsWith('http://hl7.org/fhir/')
+    ? coreEntry || dependencyEntry
+    : dependencyEntry || coreEntry;
   const packageName = entry?.package?.name;
   if (!packageName) return null;
   const terminologyMatch = packageName.match(/^hl7\.terminology\.r[3456]/);

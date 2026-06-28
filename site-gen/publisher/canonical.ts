@@ -46,6 +46,70 @@ function emptyCanonicalIndex(packages: ResolvedPackage[] = []): CanonicalIndex {
   };
 }
 
+function packageName(entry: IndexedResource): string {
+  return entry.package?.name || '';
+}
+
+function isCorePackage(name: string): boolean {
+  return /^hl7\.fhir\.r(3|4|4b|5|6)\.core$/.test(name);
+}
+
+function comparePackageVersions(a = '', b = ''): number {
+  const aa = a.split(/[.-]/);
+  const bb = b.split(/[.-]/);
+  const len = Math.max(aa.length, bb.length);
+  for (let i = 0; i < len; i++) {
+    const av = aa[i] ?? '0';
+    const bv = bb[i] ?? '0';
+    const an = /^\d+$/.test(av) ? Number(av) : NaN;
+    const bn = /^\d+$/.test(bv) ? Number(bv) : NaN;
+    const cmp = Number.isFinite(an) && Number.isFinite(bn)
+      ? an - bn
+      : av.localeCompare(bv);
+    if (cmp !== 0) return cmp;
+  }
+  return 0;
+}
+
+function packageResourcePriority(entry: IndexedResource): number {
+  const url = entry.key.url;
+  const name = packageName(entry);
+
+  if (url.startsWith('http://terminology.hl7.org/')) {
+    if (name.startsWith('hl7.terminology')) return 100;
+    if (isCorePackage(name)) return 50;
+    return 10;
+  }
+
+  if (url.startsWith('http://hl7.org/fhir/')) {
+    if (isCorePackage(name)) return 100;
+    if (name.startsWith('hl7.fhir.r') && name.includes('.examples')) return 50;
+    return 10;
+  }
+
+  return 0;
+}
+
+function shouldReplaceIndexedResource(existing: IndexedResource, candidate: IndexedResource): boolean {
+  const existingPriority = packageResourcePriority(existing);
+  const candidatePriority = packageResourcePriority(candidate);
+  if (candidatePriority !== existingPriority) return candidatePriority > existingPriority;
+  if (candidatePriority > 0) return comparePackageVersions(candidate.package?.version, existing.package?.version) > 0;
+  return false;
+}
+
+function setPreferred(map: Map<string, IndexedResource>, key: string, candidate: IndexedResource): boolean {
+  const existing = map.get(key);
+  if (!existing) {
+    map.set(key, candidate);
+    return true;
+  }
+  if (shouldReplaceIndexedResource(existing, candidate)) {
+    map.set(key, candidate);
+  }
+  return false;
+}
+
 function indexResource(
   index: CanonicalIndex,
   resource: Json,
@@ -62,8 +126,9 @@ function indexResource(
     sourcePath,
     resource,
   };
-  if (resource.resourceType === 'CodeSystem' && resource.url && !index.byCodeSystemUrl.has(resource.url)) {
-    index.byCodeSystemUrl.set(resource.url, indexed);
+  if (resource.resourceType === 'CodeSystem' && resource.url) {
+    const codeSystemUrl = canonicalNoVersion(resource.url) || resource.url;
+    setPreferred(index.byCodeSystemUrl, codeSystemUrl, indexed);
   }
   if (resource.resourceType === 'NamingSystem' && Array.isArray(resource.uniqueId)) {
     for (const uniqueId of resource.uniqueId) {
@@ -79,14 +144,10 @@ function indexResource(
     version: resource.version,
   };
   const noVersionKey = canonicalMapKey(resource.resourceType, resource.url);
-  let inserted = false;
-  if (!index.byCanonical.has(noVersionKey)) {
-    index.byCanonical.set(noVersionKey, { ...indexed, key });
-    inserted = true;
-  }
+  const inserted = setPreferred(index.byCanonical, noVersionKey, { ...indexed, key });
   if (resource.version) {
     const versionedKey = canonicalMapKey(resource.resourceType, resource.url, resource.version);
-    if (!index.byCanonical.has(versionedKey)) index.byCanonical.set(versionedKey, { ...indexed, key });
+    setPreferred(index.byCanonical, versionedKey, { ...indexed, key });
   }
   return inserted;
 }

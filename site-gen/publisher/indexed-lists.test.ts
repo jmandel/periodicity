@@ -96,6 +96,16 @@ describe('publisher list-index helpers', () => {
     expect(label('urn:oid:2.16.840.1.113883.6.96')).toBe('Other');
   });
 
+  test('uses FHIR core as the package source for FHIR-owned systems before xver copies', () => {
+    const core = emptyIndex();
+    const dependencies = emptyIndex();
+    const system = 'http://hl7.org/fhir/administrative-gender';
+    core.byCodeSystemUrl.set(system, indexedCodeSystem(system, 'hl7.fhir.r4.core'));
+    dependencies.byCodeSystemUrl.set(system, indexedCodeSystem(system, 'hl7.fhir.uv.xver-r5.r4'));
+
+    expect(sourceForSystem({ core, dependencies }, new Set())(system)).toBe('hl7.fhir.r4.core');
+  });
+
   test('normalizes known core package source labels across FHIR versions', () => {
     const core = emptyIndex();
     const dependencies = emptyIndex();
