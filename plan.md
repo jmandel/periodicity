@@ -168,40 +168,42 @@ Known useful state:
   is required, then run the blank-cache Bun publisher smoke against that
   checkout.
 - The same external-IG harness now has SDC and Da Vinci CRD wrappers
-  (`bun run test:publisher:sdc` and `bun run test:publisher:crd`). They are the
-  next pilot targets after Cycle and IPS; keep their failures concrete and
-  categorized until they can be promoted to gates.
-- A no-Java/no-compare SDC pilot run reaches package DB generation from a blank
-  package cache and produces matching first/offline validation output. Extension
-  slices whose type profile fixes `Extension.url` are now matched without
-  flooding CI logs from FHIRPath `trace()`. Sliced Extension `ext-1` validation
-  now handles `value[x]` choice aliases using a type-aware FHIRPath base. The
-  local `dom-3` evaluator now uses fhirpath model metadata to detect
-  `reference`, `canonical`, `uri`, and `url` descendants, including contained
-  resources and primitive companion extensions; sliced primitive `ele-1`
-  validation now treats raw JSON primitive values as present. Ordinary
-  FHIRPath constraints now resolve local references through the in-memory
-  resource index, so SDC's `Task.focus.resolve()` invariants evaluate without
-  async/network warnings. Current SDC triage input has three ordinary
-  warning-level authored constraints plus 60 separately reported generated
-  narrative warnings from `dom-6`.
-- A no-Java/no-compare Da Vinci CRD pilot run now reaches package DB generation
-  from a blank package cache and replays offline without downloads. CRD includes
-  authored JSON StructureDefinitions outside SUSHI's generated output; the Bun
-  publisher now completes missing local snapshots from a base snapshot plus the
-  differential, or from the normalized differential for logical specializations
-  whose base is FHIR `Base`. CRD now has no ordinary validation issues in the
-  no-Java/no-compare smoke, with 18 separately reported generated narrative
-  warnings from `dom-6` and no FHIRPath evaluation warnings.
+  (`bun run test:publisher:sdc` and `bun run test:publisher:crd`). They are
+  now promoted into the recurring publisher-safety matrix with Cycle and IPS.
+- SDC now builds from a blank package cache, replays offline without downloads,
+  and compares exactly against Java Publisher `output/package.db` for the
+  current compare surface: `Resources`, concepts, ValueSet/CodeSystem indexes,
+  source labels, OIDs, refs, and empty `ValueSet_Codes`. Extension slices whose
+  type profile fixes `Extension.url` are matched without flooding CI logs from
+  FHIRPath `trace()`. Sliced Extension `ext-1` validation handles `value[x]`
+  choice aliases using a type-aware FHIRPath base. The local `dom-3` evaluator
+  uses fhirpath model metadata to detect `reference`, `canonical`, `uri`, and
+  `url` descendants, including contained resources and primitive companion
+  extensions; sliced primitive `ele-1` validation treats raw JSON primitive
+  values as present. Ordinary FHIRPath constraints resolve local references
+  through the in-memory resource index, so SDC's `Task.focus.resolve()`
+  invariants evaluate without async/network warnings. Current SDC validation
+  has three warning-level authored constraints plus 60 separately reported
+  generated narrative warnings from `dom-6`.
+- Da Vinci CRD now builds from a blank package cache, replays offline without
+  downloads, and compares exactly against Java Publisher `output/package.db`
+  for the current compare surface. CRD includes authored JSON
+  StructureDefinitions outside SUSHI's generated output; the Bun publisher now
+  completes missing local snapshots from a base snapshot plus the differential,
+  or from the normalized differential for logical specializations whose base is
+  FHIR `Base`. CRD now has no ordinary validation issues, with 18 separately
+  reported generated narrative warnings from `dom-6` and no FHIRPath
+  evaluation warnings.
   The previous 6 false `ext-1` errors, 2 false
   `Appointment.participant` slice errors were fixed by type-aware Extension
   FHIRPath evaluation and relative `resolve()` profile-discriminator matching;
   the SDC-driven `dom-3`, sliced primitive `ele-1`, and ordinary local
   `resolve()` fixes keep CRD warning-only.
 - The Pages workflow now runs publisher unit tests in the normal build, caches
-  Bun install data and FHIR packages for warm deploy builds, and runs both the
-  Cycle blank-cache smoke and IPS pilot on a weekly/manual non-deploying safety
-  job in the same workflow. The scheduled safety job uses a separate
+  Bun install data and FHIR packages for warm deploy builds, and runs the
+  Cycle, IPS, SDC, and Da Vinci CRD publisher pilots on a weekly/manual
+  non-deploying safety job in the same workflow. The scheduled safety job uses
+  a separate
   concurrency group so it cannot cancel a Pages deploy.
 - Package registry fetches are bounded by
   `PUBLISHER_PACKAGE_DOWNLOAD_TIMEOUT_MS` so a stalled registry cannot hang the
@@ -1018,8 +1020,11 @@ Work:
 Acceptance criteria:
 
 - Cycle continues to pass after every generalization.
-- IPS can be built from a blank package cache far enough to identify concrete,
-  categorized differences from Java Publisher output.
+- IPS, SDC, and Da Vinci CRD can be built from a blank package cache, replayed
+  offline from the warmed cache, and compared exactly against Java Publisher
+  `package.db` for the current compare surface.
+- Remaining resource-JSON fidelity drift is classified in compare reports and
+  kept separate from the package.db row parity gate.
 - No pilot IG produces silently empty terminology, missing artifacts, or broken
   canonical links without an explicit diagnostic.
 - At least one non-cycle project config can render without editing generic
