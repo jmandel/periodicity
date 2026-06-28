@@ -401,27 +401,12 @@ export function resolveCodeSystemForList(
   if (!clean || clean !== system) return undefined;
   const entry = resolvePublisherEntry(indexes, { resourceType: 'CodeSystem', url: clean });
   if (!entry) return undefined;
-  if (entry.sourcePath.startsWith('terminology:') && !publisherTerminologyMetadataSystems.has(clean)) return undefined;
-  if (entry.resource?.content === 'not-present' && !publisherTerminologyMetadataSystems.has(clean)) return undefined;
+  if (entry.sourcePath.startsWith('terminology:')) return entry.resource;
+  // CrossViewRenderer fetches CodeSystem resources to populate list metadata.
+  // A CodeSystem with content=not-present is still useful metadata here, even
+  // though the terminology expander must not treat it as locally expandable.
   return entry.resource;
 }
-
-// CrossViewRenderer resolves CodeSystemList rows through
-// IWorkerContext.fetchResource(CodeSystem.class, ...), not the broader
-// validator "known code systems" list. These are the terminology-service
-// metadata systems that the Publisher exposes for cross-view rows even when no
-// package CodeSystem exists. Keep this isolated from expansion/validation.
-const publisherTerminologyMetadataSystems = new Set([
-  'http://snomed.info/sct',
-  'http://loinc.org',
-  'http://unitsofmeasure.org',
-  'http://www.nlm.nih.gov/research/umls/rxnorm',
-  'http://hl7.org/fhir/sid/ndc',
-  'http://www.whocc.no/atc',
-  'http://standardterms.edqm.eu',
-  'urn:ietf:bcp:47',
-  'urn:oid:2.16.840.1.113883.2.9.6.2.7',
-]);
 
 function conceptMapScopeValueSetUrls(conceptMap: Json): string[] {
   const urls = [

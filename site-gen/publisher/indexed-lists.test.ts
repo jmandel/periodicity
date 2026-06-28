@@ -320,7 +320,7 @@ describe('publisher list-index helpers', () => {
     ]);
   });
 
-  test('uses Publisher-style terminology metadata for CodeSystem list rows only when CrossView exposes it', () => {
+  test('uses terminology-service CodeSystem metadata for CodeSystem list rows', () => {
     const valueSet = {
       resourceType: 'ValueSet',
       id: 'lab-codes',
@@ -378,11 +378,23 @@ describe('publisher list-index helpers', () => {
     expect(rows.valueSetSystemRows.map((row) => row.url)).toContain('http://terminology.hl7.org/CodeSystem/v2-0360|2.7');
     expect(rows.codeSystemRows.map((row) => [row.viewType, row.url])).toEqual([
       [2, 'http://loinc.org'],
+      [2, 'http://nucc.org/provider-taxonomy'],
+      [2, 'urn:ietf:bcp:13'],
+      [2, 'urn:iso:std:iso:3166'],
       [3, 'http://loinc.org'],
+      [3, 'http://nucc.org/provider-taxonomy'],
+      [3, 'urn:ietf:bcp:13'],
+      [3, 'urn:iso:std:iso:3166'],
     ]);
     expect(rows.codeSystemRefRows.map((row) => [row.codeSystemListKey, row.type, row.id])).toEqual([
       [1, 'ValueSet', 'lab-codes'],
       [2, 'ValueSet', 'lab-codes'],
+      [3, 'ValueSet', 'lab-codes'],
+      [4, 'ValueSet', 'lab-codes'],
+      [5, 'ValueSet', 'lab-codes'],
+      [6, 'ValueSet', 'lab-codes'],
+      [7, 'ValueSet', 'lab-codes'],
+      [8, 'ValueSet', 'lab-codes'],
     ]);
   });
 
