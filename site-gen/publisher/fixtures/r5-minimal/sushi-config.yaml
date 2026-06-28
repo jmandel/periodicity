@@ -1,0 +1,8 @@
+id: example.r5.minimal
+canonical: https://example.org/r5
+name: R5MinimalIG
+version: 0.1.0
+status: draft
+fhirVersion: 5.0.0
+parameters:
+  pin-canonicals: pin-all

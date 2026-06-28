@@ -16,12 +16,14 @@
  * Run: bun site-gen/ingest.ts     (PKG_DB / SITE_DB env override defaults)
  */
 import { Database } from 'bun:sqlite';
-import { copyFileSync, readFileSync, existsSync, readdirSync, statSync, mkdirSync } from 'node:fs';
+import { copyFileSync, readFileSync, existsSync, readdirSync, statSync, mkdirSync, rmSync } from 'node:fs';
 import { dirname, isAbsolute, join, normalize, relative } from 'node:path';
 import YAML from 'yaml';
-import { project } from './project/cycle';
+import { project } from './project';
+import { assertPackageDbContract } from './publisher/contract';
 
 const PAGEDIR = project.contentDir;
+const CONFIG = process.env.SUSHI_CONFIG || 'sushi-config.yaml';
 
 /** Resolve the Publisher's package.db explicitly — never silently use a stale dev copy. */
 function resolvePkgDb(): string {
@@ -41,8 +43,10 @@ const PKG = resolvePkgDb();
 const SITE = process.env.SITE_DB || 'temp/site-gen/site.db';
 const preserveAssets = process.env.SITE_GEN_PRESERVE_ASSETS === '1' || PKG.endsWith('site-gen/fixtures/package.db');
 mkdirSync(dirname(SITE), { recursive: true });
+for (const f of [SITE, `${SITE}-wal`, `${SITE}-shm`]) rmSync(f, { force: true });
 copyFileSync(PKG, SITE);
 const db = new Database(SITE);
+assertPackageDbContract(db);
 db.exec('PRAGMA journal_mode = WAL;');
 
 db.exec(`
@@ -66,7 +70,7 @@ function liquidIncludeNames(body: string): string[] {
   const out: string[] = [];
   const re = /{%-?\s*include\s+("[^"]+"|'[^']+'|[^\s%]+)[^%]*-?%}/g;
   let m: RegExpExecArray | null;
-  while ((m = re.exec(body))) out.push(m[1].replace(/^['"]|['"]$/g, ''));
+  while ((m = re.exec(body))) out.push(m[1].replace(/^(['"])([\s\S]*)\1$/, '$2'));
   return out;
 }
 function walkPages(node: any, depth: number) {
@@ -91,7 +95,7 @@ function walkPages(node: any, depth: number) {
 walkPages(ig.definition?.page, 0);
 
 // ---- Menu: sushi-config.yaml `menu:` (submenus + anchors) ----
-const cfg = YAML.parse(readFileSync('sushi-config.yaml', 'utf8'));
+const cfg = YAML.parse(readFileSync(CONFIG, 'utf8'));
 db.prepare('INSERT OR REPLACE INTO SiteConfig (Name, Json) VALUES (?,?)').run('sushi-config', JSON.stringify(cfg, null, 2));
 const insMenu = db.prepare('INSERT INTO Menu (Id, ParentId, Ord, Depth, Path, Label, Href, Kind) VALUES (?,?,?,?,?,?,?,?)');
 let mord = 0;

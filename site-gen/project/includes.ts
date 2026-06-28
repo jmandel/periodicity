@@ -7,9 +7,30 @@
  */
 import type { IncludeRegistry } from '../core/liquid';
 
-const esc = (s: string) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const esc = (s: unknown) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const attr = (s: unknown) => esc(s).replace(/"/g, '&quot;');
+const safeAsset = (s: unknown) => {
+  const name = String(s ?? '').trim().replace(/\\/g, '/');
+  if (!name || name.startsWith('/') || name.split('/').some((part) => !part || part === '..')) return '';
+  return name;
+};
+const safeCssSize = (s: unknown) => {
+  const value = String(s ?? '').trim();
+  return /^(\d+(\.\d+)?(px|em|rem|%)?|auto)$/i.test(value) ? value : '';
+};
 
 export const includes: IncludeRegistry = {
+  // Common Publisher-style image include used by many IGs:
+  // {% include img.html img="diagram.png" caption="Figure 1" width="70%" %}
+  'img.html': (_ig, params) => {
+    const img = safeAsset(params.img || params.src);
+    if (!img) throw new Error('img.html include requires a safe img= filename');
+    const caption = params.caption || '';
+    const width = safeCssSize(params.width);
+    const style = width ? ` style="max-width:${attr(width)}"` : '';
+    return `<figure class="ig-figure"><img src="${attr(img)}" alt="${attr(caption)}"${style}>${caption ? `<figcaption>${esc(caption)}</figcaption>` : ''}</figure>`;
+  },
+
   // dependency table: derived from the IG resource's dependsOn (in the DB).
   'dependency-table.xhtml': (ig) => {
     const deps = ig.dependsOn || [];

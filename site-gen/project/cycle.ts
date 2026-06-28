@@ -12,9 +12,9 @@ export const project = {
   outDir: process.env.OUT_DIR || 'site-gen/out',
   designDir: process.env.SITE_DESIGN_DIR || 'site-gen/designs/cycle',
   projectCss: 'site-gen/project/cycle.css', // shipped as out/assets/project.css
-  contentDir: 'input/pagecontent',
-  imageDir: 'input/images',
-  publisherIncludeDirs: ['temp/pages/_includes', 'input/includes'],
+  contentDir: process.env.SITE_CONTENT_DIR || 'input/pagecontent',
+  imageDir: process.env.SITE_IMAGE_DIR || 'input/images',
+  publisherIncludeDirs: process.env.SITE_PUBLISHER_INCLUDE_DIRS?.split(',').filter(Boolean) || ['temp/pages/_includes', 'input/includes'],
 
   // ---- links to artifacts the SURROUNDING build script injects (viewers, SHL,
   //      skill.zip) — site-gen does not produce these, so the link checker treats

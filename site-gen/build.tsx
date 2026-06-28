@@ -16,13 +16,14 @@ import { ArtifactsPage } from './fhir/ArtifactsPage';
 import { ValueSetPage } from './fhir/ValueSetPage';
 import { CodeSystemPage } from './fhir/CodeSystemPage';
 import { ExamplePage } from './fhir/ExamplePage';
+import { ResourcePage } from './fhir/ResourcePage';
 import type { ResolveType } from './fhir/ElementTable';
 import { renderLiquid } from './core/liquid';
 import { includes } from './project/includes';
 import { renderMarkdown } from './core/markdown';
 import { isExternalLink } from './config';
 import { checkInternalLinks } from './core/link-check';
-import { project } from './project/cycle';
+import { project } from './project';
 
 const OUT = project.outDir;
 // The visual design is a site-gen-owned drop-in (swap = directory change).
@@ -64,7 +65,7 @@ for (const r of all) if (r.Url) byUrl.set(r.Url, page(r));
 const igResource = db.ig();
 const RESOURCE_SORT = 'http://hl7.org/fhir/tools/StructureDefinition/resource-sort';
 const EXAMPLE_PROFILE_EXTENSION = 'http://hl7.org/fhir/5.0/StructureDefinition/extension-ImplementationGuide.definition.resource.profile';
-const CANONICAL_RESOURCE_TYPES = new Set(['StructureDefinition', 'ValueSet', 'CodeSystem', 'ImplementationGuide']);
+const PRIMARY_RESOURCE_TYPES = new Set(['StructureDefinition', 'ValueSet', 'CodeSystem', 'ImplementationGuide']);
 const sortRanks = new Map<string, number>();
 const exampleRefs = new Set<string>();
 const exampleProfilesByReference = new Map<string, string[]>();
@@ -88,7 +89,10 @@ function resourceReference(r: db.ResourceRow): string {
   return `${r.Type}/${r.Id}`;
 }
 function isExampleRow(r: db.ResourceRow): boolean {
-  return !CANONICAL_RESOURCE_TYPES.has(r.Type) && exampleRefs.has(resourceReference(r));
+  return !PRIMARY_RESOURCE_TYPES.has(r.Type) && exampleRefs.has(resourceReference(r));
+}
+function isGenericResourcePageRow(r: db.ResourceRow): boolean {
+  return !PRIMARY_RESOURCE_TYPES.has(r.Type) && !isExampleRow(r);
 }
 function artifactRank(r: db.ResourceRow): number {
   return sortRanks.get(`${r.Type}/${r.Id}`) ?? 100000;
@@ -132,6 +136,9 @@ const configuredProfileGroups = project.profileGroups || [];
 function profileGroupLabel(id: string): string | null {
   return configuredProfileGroups.find((g) => g.ids.includes(id))?.label || null;
 }
+function esc(s: unknown): string {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
 
 // nav-active: page slug -> top menu label
 const navMap: Record<string, string> = { index: 'Home', artifacts: 'Artifacts' };
@@ -156,12 +163,27 @@ const artifactsNav = navMap['artifacts'] || 'Artifacts'; // 'More' once nested t
 
 const PRIMS = new Set(['boolean', 'integer', 'string', 'decimal', 'uri', 'url', 'canonical', 'base64Binary', 'instant', 'date', 'dateTime', 'time', 'code', 'oid', 'id', 'markdown', 'unsignedInt', 'positiveInt', 'uuid', 'xhtml']);
 const DTYPES = new Set(['CodeableConcept', 'Coding', 'Quantity', 'Reference', 'Period', 'Identifier', 'Range', 'Ratio', 'Annotation', 'Attachment', 'HumanName', 'Address', 'ContactPoint', 'Timing', 'Money', 'Age', 'Duration', 'SampledData', 'Signature', 'Meta', 'Narrative', 'Extension', 'BackboneElement', 'Element', 'Dosage']);
+const FHIR_CORE_DOC_PAGES = new Set([
+  'careplan.html',
+  'clinicalimpression.html',
+  'consent.html',
+  'documentreference.html',
+  'immunizationrecommendation.html',
+  'observation-vitalsigns.html',
+]);
 const resolve: ResolveType = (code, profileUrl) => {
   if (profileUrl && byUrl.has(profileUrl)) return byUrl.get(profileUrl)!;
   if (profileUrl) return profileUrl;
   if (PRIMS.has(code) || DTYPES.has(code)) return `https://hl7.org/fhir/R4/datatypes.html#${code}`;
   return `https://hl7.org/fhir/R4/${code.toLowerCase()}.html`;
 };
+function rewriteCoreFhirDocLinks(markdown: string): string {
+  return markdown.replace(/(\]\(|href=["'])(\.\/)?([a-z][a-z0-9-]+\.html)(#[^)'" ]+)?/gi, (m, prefix, dot, pageName, anchor = '') => {
+    const normalized = String(pageName).toLowerCase();
+    if (!FHIR_CORE_DOC_PAGES.has(normalized)) return m;
+    return `${prefix}https://hl7.org/fhir/R4/${normalized}${anchor || ''}`;
+  });
+}
 
 function profileRootRequirements(data: any, rootType: string): ProfileRequirement[] {
   const root = (data.differential?.element || []).find((e: any) => e.path === rootType);
@@ -214,16 +236,21 @@ function profileExamples(profileUrl: string): ProfileExampleUse[] {
 function ArtifactSidebar({ current }: { current: string }) {
   const sds = artifactResources('StructureDefinition');
   const terms = [...artifactResources('ValueSet'), ...artifactResources('CodeSystem')];
+  const groups = configuredProfileGroups.length
+    ? configuredProfileGroups
+    : [{ label: 'Profiles', ids: sds.map((r) => r.Id) }];
   return (
     <>
       <div className="side-group">
         <div className="side-title">Profiles</div>
-        {configuredProfileGroups.map((group) => {
-          const rows = sds.filter((r) => profileGroupLabel(r.Id) === group.label);
+        {groups.map((group) => {
+          const rows = configuredProfileGroups.length
+            ? sds.filter((r) => profileGroupLabel(r.Id) === group.label)
+            : sds;
           if (!rows.length) return null;
           return (
             <React.Fragment key={group.label}>
-              <div className="side-subtitle">{group.label}</div>
+              {configuredProfileGroups.length ? <div className="side-subtitle">{group.label}</div> : null}
               {rows.map((r) => (
                 <a key={r.Id} href={page(r)} {...(page(r) === current ? { 'aria-current': 'page' } : {})}>
                   <span style={{ flex: 1 }}>{r.Title || r.Name || r.Id}</span>
@@ -244,6 +271,72 @@ function ArtifactSidebar({ current }: { current: string }) {
       </div>
     </>
   );
+}
+
+const SIMPLE_LIST_TYPES: Record<string, string> = {
+  allergyintolerances: 'AllergyIntolerance',
+  bundles: 'Bundle',
+  codesystems: 'CodeSystem',
+  compositions: 'Composition',
+  conditions: 'Condition',
+  devices: 'Device',
+  deviceusestatements: 'DeviceUseStatement',
+  diagnosticreports: 'DiagnosticReport',
+  imagingstudies: 'ImagingStudy',
+  immunizations: 'Immunization',
+  media: 'Media',
+  medications: 'Medication',
+  medicationrequests: 'MedicationRequest',
+  medicationstatements: 'MedicationStatement',
+  observations: 'Observation',
+  organizations: 'Organization',
+  patients: 'Patient',
+  practitioners: 'Practitioner',
+  practitionerroles: 'PractitionerRole',
+  procedures: 'Procedure',
+  specimen: 'Specimen',
+  valuesets: 'ValueSet',
+};
+function emittedPageForResource(r: db.ResourceRow): string | null {
+  if (r.Type === 'StructureDefinition' || r.Type === 'ValueSet' || r.Type === 'CodeSystem') return page(r);
+  if (isExampleRow(r) || isGenericResourcePageRow(r)) return page(r);
+  return null;
+}
+function listRowsForType(type: string): db.ResourceRow[] {
+  if (type === 'StructureDefinition' || type === 'ValueSet' || type === 'CodeSystem') return artifactResources(type);
+  return artifactResources(type).filter(isExampleRow);
+}
+function simpleNameList(type: string): string {
+  const rows = listRowsForType(type);
+  if (!rows.length) return '<li class="muted">None.</li>';
+  return rows.map((r) => {
+    const title = esc(r.Title || r.Name || r.Id);
+    const href = emittedPageForResource(r);
+    return `<li>${href ? `<a href="${esc(href)}">${title}</a>` : title}</li>`;
+  }).join('\n');
+}
+function artifactTable(type: string, rows: db.ResourceRow[]): string {
+  if (!rows.length) return '<p class="muted">None.</p>';
+  const body = rows.map((r) => {
+    const title = esc(r.Title || r.Name || r.Id);
+    const href = emittedPageForResource(r);
+    const label = href ? `<a href="${esc(href)}">${title}</a>` : title;
+    return `<tr><td>${label}</td><td>${esc(r.Description || '')}</td></tr>`;
+  }).join('');
+  return `<div class="table-scroll"><table class="cycle-table"><thead><tr><th>${esc(type)}</th><th>Description</th></tr></thead><tbody>${body}</tbody></table></div>`;
+}
+function generatedFragment(name: string): string | null {
+  if (name === 'table-profiles.xhtml') return artifactTable('Profile', artifactResources('StructureDefinition'));
+  if (name === 'table-actordefinitions.xhtml') return artifactTable('ActorDefinition', artifactResources('ActorDefinition'));
+  const simple = name.match(/^list-simple-name-(.+)\.xhtml$/);
+  if (simple) {
+    const type = SIMPLE_LIST_TYPES[simple[1].toLowerCase()];
+    if (type) return simpleNameList(type);
+  }
+  return null;
+}
+function liquidAssetInclude(name: string): string | null {
+  return generatedFragment(name) ?? db.textAsset(name);
 }
 function PagesSidebar({ current }: { current: string }) {
   return (
@@ -286,7 +379,7 @@ for (const p of db.pages()) {
     liquidOut = renderLiquid(p.Body, {
       includes,
       ig: igResource,
-      assetInclude: db.textAsset,
+      assetInclude: liquidAssetInclude,
       sql: (query) => db.db.query(query).all() as Record<string, any>[],
     });
   } catch (e: any) {
@@ -295,6 +388,7 @@ for (const p of db.pages()) {
     if (process.env.SITE_GEN_LENIENT === '1') { console.warn(`  ! liquid failed for ${p.Slug}: ${e.message}`); liquidOut = p.Body; }
     else throw new Error(`Liquid failed for ${p.Slug}.md: ${e.message}`);
   }
+  liquidOut = rewriteCoreFhirDocLinks(liquidOut);
   // Publish the liquid-resolved markdown next to the HTML so agents can fetch source.
   writeFileSync(`${OUT}/${p.Slug}.md`, liquidOut);
   emitted.add(`${p.Slug}.md`);
@@ -319,6 +413,41 @@ emit('artifacts.html', <ArtifactsPage resources={artifactResources()} page={page
   sidebar: <ArtifactSidebar current="artifacts.html" />,
 });
 
+const renderMenuList = (parentId: number | null): React.ReactNode => {
+  const rows = menuChildren.get(parentId) || [];
+  if (!rows.length) return null;
+  return (
+    <ul>
+      {rows.map((m) => (
+        <li key={m.Id}>
+          {m.Href ? <a href={m.Href}>{m.Label}</a> : <span>{m.Label}</span>}
+          {renderMenuList(m.Id)}
+        </li>
+      ))}
+    </ul>
+  );
+};
+emit('toc.html', <div className="cycle-prose"><h1>Table of Contents</h1>{renderMenuList(null)}</div>, {
+  title: 'Table of Contents',
+  navActive: navMap['toc'],
+  crumbs: [{ label: 'Home', href: 'index.html' }, { label: 'Table of Contents' }],
+});
+
+emit('validation.html', (
+  <div className="cycle-prose">
+    <h1>Validation</h1>
+    <p>
+      This experimental site-gen build did not run the Java IG Publisher
+      validation report for this page. Use the published IG QA output or run the
+      full Publisher validation path when conformance validation evidence is
+      required.
+    </p>
+  </div>
+), {
+  title: 'Validation',
+  crumbs: [{ label: 'Home', href: 'index.html' }, { label: 'Validation' }],
+});
+
 // ---- profile pages ----
 let nProfiles = 0;
 for (const r of artifactResources('StructureDefinition')) {
@@ -338,6 +467,22 @@ for (const r of artifactResources('StructureDefinition')) {
     sidebar: <ArtifactSidebar current={page(r)} />,
     machineBase: writeArtifactJson(r),
   });
+  const companion = (kind: 'definitions' | 'mappings', label: string) => emit(`StructureDefinition-${r.Id}-${kind}.html`, (
+    <div className="cycle-prose">
+      <h1>{r.Title || r.Name || r.Id} {label}</h1>
+      <p>
+        This experimental renderer publishes the profile's computable definition
+        on the main profile page.
+      </p>
+      <p><a href={page(r)}>Open {r.Title || r.Name || r.Id}</a></p>
+    </div>
+  ), {
+    title: `${r.Title || r.Name || r.Id} ${label}`,
+    navActive: artifactsNav,
+    crumbs: [{ label: 'Artifacts', href: 'artifacts.html' }, { label }],
+  });
+  companion('definitions', 'Definitions');
+  companion('mappings', 'Mappings');
   nProfiles++;
 }
 
@@ -363,6 +508,22 @@ for (const r of artifactResources('CodeSystem')) {
     sidebar: <ArtifactSidebar current={page(r)} />,
     machineBase: writeArtifactJson(r),
   });
+}
+
+// ---- other resource artifacts ----
+let nGenericResources = 0;
+for (const r of artifactResources().filter(isGenericResourcePageRow)) {
+  if (r.Type === 'ImplementationGuide') continue;
+  const data = db.parse(r);
+  emit(page(r), <ResourcePage r={r} data={data} />, {
+    title: r.Title || r.Name || r.Id,
+    navActive: artifactsNav,
+    crumbs: [{ label: 'Artifacts', href: 'artifacts.html' }, { label: r.Type }, { label: r.Title || r.Id }],
+    toc: [{ id: 'overview', label: 'Overview' }, { id: 'source', label: 'Source' }],
+    sidebar: <ArtifactSidebar current={page(r)} />,
+    machineBase: writeArtifactJson(r),
+  });
+  nGenericResources++;
 }
 
 // ---- examples ----
@@ -451,7 +612,7 @@ const bundleKb = Math.round((bundle.outputs.find((o) => o.path.endsWith('app.js'
 console.log(`✓ client bundle → assets/app.js (${bundleKb} KB)`);
 
 // ---- link checker: fail on any dangling internal href ----
-console.log(`Rendered ${nPages} narrative + artifacts + ${nProfiles} profiles + VS/CS + ${nExamples} examples → ${OUT}/`);
+console.log(`Rendered ${nPages} narrative + artifacts + ${nProfiles} profiles + VS/CS + ${nGenericResources} generic resources + ${nExamples} examples → ${OUT}/`);
 const broken = checkInternalLinks({ outDir: OUT, emitted, files: emitted, isExternalLink });
 if (broken.length) {
   console.error(`\n✗ ${broken.length} broken internal links:`);

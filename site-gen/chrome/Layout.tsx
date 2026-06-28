@@ -2,12 +2,12 @@ import React from 'react';
 import { Menu } from './Menu';
 import { MachineFormats } from '../fhir/MachineFormats';
 import { Footer } from './Footer';
-import { project } from '../project/cycle';
+import { project } from '../project';
 
 const brand = project.brand;
-const BRAND_MARK = (
-  <img className="cycle-mark-img" src={`assets/${brand.mark}`} width={30} height={30} alt="" style={{ display: 'block' }} />
-);
+const BRAND_MARK = brand.mark
+  ? <img className="cycle-mark-img" src={`assets/${brand.mark}`} width={30} height={30} alt="" style={{ display: 'block' }} />
+  : null;
 
 export interface Crumb { label: string; href?: string }
 export interface TocItem { id: string; label: string }
@@ -39,15 +39,15 @@ export function Layout({
         {css.map((c) => <link key={c} rel="stylesheet" href={`assets/cycle/${c}.css`} />)}
         <link rel="stylesheet" href="assets/cycle/base.css" />
         <link rel="stylesheet" href="assets/project.css" />
-        <link rel="shortcut icon" href={`assets/${brand.mark}`} />
+        {brand.mark && <link rel="shortcut icon" href={`assets/${brand.mark}`} />}
       </head>
       <body>
         <a className="skip-link" href="#cycle-main">Skip to content</a>
         <header className="cycle-topbar">
           <div className="cycle-topbar-inner">
-            <a className="cycle-brand" href="index.html" aria-label={`${brand.wordmark}${brand.tld} — home`}>
+            <a className="cycle-brand" href="index.html" aria-label={`${brand.wordmark}${brand.tld || ''} — home`}>
               {BRAND_MARK}
-              <span className="cycle-wordmark">{brand.wordmark}<span className="cycle-tld">{brand.tld}</span></span>
+              <span className="cycle-wordmark">{brand.wordmark}{brand.tld && <span className="cycle-tld">{brand.tld}</span>}</span>
             </a>
             <span className="cycle-badge">{meta.igVer} · {meta.releaseLabel || 'draft'}</span>
             <Menu active={navActive} />

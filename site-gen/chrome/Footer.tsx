@@ -1,9 +1,9 @@
 import React from 'react';
-import { project } from '../project/cycle';
+import { project } from '../project';
 
 const brand = project.brand;
 const guide = project.footer.guide;
-const MARK = <img src={`assets/${brand.mark}`} width={26} height={26} alt="" style={{ display: 'block' }} />;
+const MARK = brand.mark ? <img src={`assets/${brand.mark}`} width={26} height={26} alt="" style={{ display: 'block' }} /> : null;
 
 const LICENSE_URLS: Record<string, string> = {
   'CC0-1.0': 'https://creativecommons.org/publicdomain/zero/1.0/',
@@ -20,8 +20,8 @@ export function Footer({ meta, ig }: { meta: Record<string, string>; ig: any }) 
       <div className="cycle-footer-inner">
         <div className="foot-grid">
           <div className="foot-brand">
-            <a className="foot-mark" href="index.html" aria-label={`${brand.wordmark}${brand.tld} — home`}>
-              {MARK}<span className="foot-word">{brand.wordmark}<span className="cycle-tld">{brand.tld}</span></span>
+            <a className="foot-mark" href="index.html" aria-label={`${brand.wordmark}${brand.tld || ''} — home`}>
+              {MARK}<span className="foot-word">{brand.wordmark}{brand.tld && <span className="cycle-tld">{brand.tld}</span>}</span>
             </a>
             <p className="foot-tag">{brand.tagline}</p>
             <span className="foot-ver">{meta.igVer} · {meta.releaseLabel || 'draft'} · FHIR {meta.version}</span>

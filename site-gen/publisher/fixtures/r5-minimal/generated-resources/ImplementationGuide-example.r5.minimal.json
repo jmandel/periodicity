@@ -1,0 +1,22 @@
+{
+  "resourceType": "ImplementationGuide",
+  "id": "example.r5.minimal",
+  "url": "https://example.org/r5/ImplementationGuide/example.r5.minimal",
+  "version": "0.1.0",
+  "name": "R5MinimalIG",
+  "status": "draft",
+  "packageId": "example.r5.minimal",
+  "fhirVersion": [
+    "5.0.0"
+  ],
+  "definition": {
+    "resource": [
+      {
+        "reference": {
+          "reference": "StructureDefinition/minimal-observation"
+        },
+        "name": "Minimal Observation"
+      }
+    ]
+  }
+}

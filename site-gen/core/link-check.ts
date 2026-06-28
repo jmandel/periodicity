@@ -31,12 +31,12 @@ export function checkInternalLinks(args: {
     const html = readFileSync(`${args.outDir}/${file}`, 'utf8');
     for (const h of collectLocalRefs(html)) {
       if (/^\s*javascript:/i.test(h)) { broken.push(`${file} → ${h} (forbidden javascript: link)`); continue; }
-      if (/^(https?:|mailto:|tel:|#|data:|\/)/.test(h)) continue;
+      if (/^(?:[a-z][a-z0-9+.-]*:|#|\/)/i.test(h)) continue;
       const target = h.split('#')[0].split('?')[0];
       if (!target) continue;
       const resolved = path.normalize(path.join(path.dirname(file), target));
-      if (resolved.startsWith('../')) { broken.push(`${file} → ${h} (escapes output directory)`); continue; }
       if (args.isExternalLink(h) || args.isExternalLink(resolved)) continue; // injected by a later build step (config-declared)
+      if (resolved.startsWith('../')) { broken.push(`${file} → ${h} (escapes output directory)`); continue; }
       if (!args.emitted.has(resolved) && !existsSync(`${args.outDir}/${resolved}`)) broken.push(`${file} → ${h}`);
     }
   }

@@ -7,7 +7,8 @@
  */
 import { Liquid } from 'liquidjs';
 
-export type IncludeRegistry = Record<string, (ig: any) => string>;
+export type IncludeParams = Record<string, string>;
+export type IncludeRegistry = Record<string, (ig: any, params: IncludeParams) => string>;
 export type SqlExecutor = (query: string) => Record<string, any>[];
 type SqlColumn = { source?: string; name?: string; title?: string; type?: string; target?: string; system?: string; display?: string; version?: string; width?: string; minWidth?: string };
 type SqlColumnStats = {
@@ -160,20 +161,43 @@ function renderSqlToData(src: string, runSql: SqlExecutor | undefined, data: Rec
   });
 }
 
+function stripQuotes(s: string): string {
+  return s.trim().replace(/^(['"])([\s\S]*)\1$/, '$2');
+}
+
+function parseIncludeArgs(args: string): { name: string; params: IncludeParams } {
+  const trimmed = args.trim();
+  const first = trimmed.match(/^("[^"]+"|'[^']+'|\S+)([\s\S]*)$/);
+  if (!first) throw new Error('Empty include tag');
+  const name = stripQuotes(first[1]);
+  const rest = first[2] || '';
+  const params: IncludeParams = {};
+  const attrRe = /([A-Za-z_][\w-]*)\s*=\s*("[^"]*"|'[^']*'|[^\s]+)/g;
+  let m: RegExpExecArray | null;
+  while ((m = attrRe.exec(rest))) params[m[1]] = stripQuotes(m[2]);
+  return { name, params };
+}
+
 export function renderLiquid(src: string, opts: { includes: IncludeRegistry; ig: any; assetInclude?: (name: string) => string | null; sql?: SqlExecutor }): string {
   const sqlData: Record<string, any> = {};
   let withSql = renderSqlToData(src, opts.sql, sqlData);
   withSql = withSql.replace(/{%-?\s*sql\s+([\s\S]*?)\s*-?%\}/gi, (_m, args) => runSqlDirective(args, opts.sql));
   const engine = new Liquid({ strictFilters: true, strictVariables: false, extname: '' });
-  engine.registerTag('include', {
-    parse(token: any) { this.name = token.args.trim().replace(/^['"]|['"]$/g, ''); },
+  const registerNamedFragmentTag = (tagName: string) => engine.registerTag(tagName, {
+    parse(token: any) {
+      const parsed = parseIncludeArgs(token.args);
+      this.name = parsed.name;
+      this.params = parsed.params;
+    },
     *render() {
       const gen = opts.includes[this.name];
-      if (gen) return gen(opts.ig);
+      if (gen) return gen(opts.ig, this.params || {});
       const asset = opts.assetInclude?.(this.name);
       if (asset != null) return asset;
       throw new Error(`Unknown include '${this.name}' — register it in project/includes.ts or ingest a same-named asset before use.`);
     },
   });
+  registerNamedFragmentTag('include');
+  registerNamedFragmentTag('lang-fragment');
   return engine.parseAndRenderSync(withSql, { ...sqlData, site: { data: { fhir: { ig: opts.ig } } } });
 }

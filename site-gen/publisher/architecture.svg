@@ -1,0 +1,166 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="940" viewBox="0 0 1280 940" font-family="'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-end">
+      <path d="M0,0 L10,5 L0,10 z" fill="#475569"/>
+    </marker>
+    <marker id="arrowBlue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-end">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/>
+    </marker>
+    <marker id="arrowAmber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-end">
+      <path d="M0,0 L10,5 L0,10 z" fill="#b45309"/>
+    </marker>
+    <style>
+      .title   { font-size: 26px; font-weight: 700; fill: #0f172a; }
+      .subtitle{ font-size: 14px; fill: #475569; }
+      .lane    { font-size: 13px; font-weight: 700; fill: #64748b; letter-spacing: 1px; }
+      .boxttl  { font-size: 15px; font-weight: 700; fill: #0f172a; }
+      .boxsub  { font-size: 11.5px; fill: #475569; }
+      .mono    { font-family: 'SF Mono','Consolas',monospace; font-size: 11px; fill: #334155; }
+      .stepn   { font-size: 12px; font-weight: 700; fill: #ffffff; }
+      .pill    { font-size: 11px; fill: #1e293b; }
+      .note    { font-size: 11px; fill: #64748b; font-style: italic; }
+      .dbttl   { font-size: 13px; font-weight: 700; fill: #fff; }
+      .dbrow   { font-size: 11px; fill: #e0e7ff; }
+    </style>
+  </defs>
+
+  <rect width="1280" height="940" fill="#f8fafc"/>
+
+  <!-- Header -->
+  <text x="40" y="48" class="title">site-gen / publisher</text>
+  <text x="40" y="70" class="subtitle">A source-driven, light-weight stand-in for the Java IG Publisher — it synthesizes the <tspan class="mono" font-size="12">package.db</tspan> that the spec site reads, then proves fidelity against the real one.</text>
+
+  <!-- ===================== LANE 1: INPUTS ===================== -->
+  <text x="40" y="112" class="lane">1 · INPUTS  (already on disk after SUSHI compiles the FSH)</text>
+  <rect x="40" y="124" width="290" height="78" rx="10" fill="#ecfeff" stroke="#06b6d4" stroke-width="1.5"/>
+  <text x="58" y="148" class="boxttl">fsh-generated/resources/*.json</text>
+  <text x="58" y="168" class="boxsub">Profiles, ValueSets, CodeSystems</text>
+  <text x="58" y="185" class="boxsub">+ the ImplementationGuide manifest</text>
+
+  <rect x="350" y="124" width="250" height="78" rx="10" fill="#ecfeff" stroke="#06b6d4" stroke-width="1.5"/>
+  <text x="368" y="148" class="boxttl">input/resources/*.json</text>
+  <text x="368" y="168" class="boxsub">Authored / generated</text>
+  <text x="368" y="185" class="boxsub">example instances</text>
+
+  <rect x="620" y="124" width="210" height="78" rx="10" fill="#ecfeff" stroke="#06b6d4" stroke-width="1.5"/>
+  <text x="638" y="148" class="boxttl">sushi-config.yaml</text>
+  <text x="638" y="168" class="boxsub">Package metadata,</text>
+  <text x="638" y="185" class="boxsub">version, publisher</text>
+
+  <rect x="850" y="124" width="270" height="78" rx="10" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5 3"/>
+  <text x="868" y="148" class="boxttl">~/.fhir/packages</text>
+  <text x="868" y="168" class="boxsub">core + ambient packages —</text>
+  <text x="868" y="185" class="boxsub">resolve EXTERNAL canonicals</text>
+
+  <!-- arrows down to build -->
+  <path d="M185,202 L185,232" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <path d="M475,202 L475,232" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <path d="M725,202 L725,232" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <path d="M985,202 L985,232" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#arrow)"/>
+
+  <!-- ===================== LANE 2: BUILD PIPELINE ===================== -->
+  <text x="40" y="256" class="lane">2 · build.ts  —  a deterministic, no-validation extraction pipeline (no Java, no terminology server)</text>
+
+  <rect x="40" y="270" width="1080" height="266" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
+
+  <!-- step a -->
+  <rect x="62" y="292" width="320" height="92" rx="10" fill="#ffffff" stroke="#bfdbfe" stroke-width="1.5"/>
+  <circle cx="84" cy="314" r="11" fill="#2563eb"/><text x="84" y="318" class="stepn" text-anchor="middle">A</text>
+  <text x="104" y="312" class="boxttl">Load &amp; order resources</text>
+  <text x="80" y="338" class="boxsub">Index every resource by Type/Id.</text>
+  <text x="80" y="355" class="boxsub">Order: IG → manifest order → by typeRank</text>
+  <text x="80" y="372" class="boxsub">(CodeSystem→SD→ValueSet…) — fully stable.</text>
+
+  <!-- step b -->
+  <rect x="402" y="292" width="320" height="92" rx="10" fill="#ffffff" stroke="#bfdbfe" stroke-width="1.5"/>
+  <circle cx="424" cy="314" r="11" fill="#2563eb"/><text x="424" y="318" class="stepn" text-anchor="middle">B</text>
+  <text x="444" y="312" class="boxttl">Resources table</text>
+  <text x="420" y="338" class="boxsub">Flatten each resource into columns</text>
+  <text x="420" y="355" class="boxsub">(Url, kind, base, standardStatus…) +</text>
+  <text x="420" y="372" class="boxsub">full JSON blob. Assign integer keys.</text>
+
+  <!-- step c -->
+  <rect x="742" y="292" width="356" height="92" rx="10" fill="#ffffff" stroke="#bfdbfe" stroke-width="1.5"/>
+  <circle cx="764" cy="314" r="11" fill="#2563eb"/><text x="764" y="318" class="stepn" text-anchor="middle">C</text>
+  <text x="784" y="312" class="boxttl">Concepts (+ optional expansion)</text>
+  <text x="760" y="338" class="boxsub">Recursively walk CodeSystem trees</text>
+  <text x="760" y="355" class="boxsub">(keep ParentKey). ValueSet_Codes is</text>
+  <text x="760" y="372" class="boxsub">OPT-IN &amp; local-only — empty by default.</text>
+
+  <!-- step d  (the big one) -->
+  <rect x="62" y="400" width="1036" height="118" rx="10" fill="#ffffff" stroke="#bfdbfe" stroke-width="1.5"/>
+  <circle cx="84" cy="424" r="11" fill="#2563eb"/><text x="84" y="428" class="stepn" text-anchor="middle">D</text>
+  <text x="104" y="422" class="boxttl">Build the terminology index lists  —  the intricate part</text>
+  <text x="80" y="446" class="boxsub">For every local profile, collect its ValueSet bindings from the authored differential and generated snapshot.</text>
+  <text x="80" y="463" class="boxsub">Group ValueSets &amp; CodeSystems into three views, resolving external canonicals from the package cache:</text>
+
+  <rect x="80" y="476" width="320" height="32" rx="6" fill="#dbeafe"/>
+  <text x="92" y="496" class="pill"><tspan font-weight="700">View 1 — Defined</tspan>  every local VS / CS</text>
+  <rect x="412" y="476" width="320" height="32" rx="6" fill="#bfdbfe"/>
+  <text x="424" y="496" class="pill"><tspan font-weight="700">View 2 — Used</tspan>  bound by local profiles</text>
+  <rect x="744" y="476" width="338" height="32" rx="6" fill="#93c5fd"/>
+  <text x="756" y="496" class="pill"><tspan font-weight="700">View 3 — Dependencies</tspan>  external + bound set</text>
+
+  <!-- internal arrows A->B->C -->
+  <path d="M382,338 L400,338" stroke="#2563eb" stroke-width="1.5" marker-end="url(#arrowBlue)"/>
+  <path d="M722,338 L740,338" stroke="#2563eb" stroke-width="1.5" marker-end="url(#arrowBlue)"/>
+  <path d="M222,384 L222,398" stroke="#2563eb" stroke-width="1.5" marker-end="url(#arrowBlue)"/>
+
+  <text x="62" y="556" class="note">Each row also records: OIDs, every contributing code system, a "source" label (SCT / LOINC / THO / core / Internal), and back-refs to the profiles that bind it.</text>
+
+  <!-- arrow build -> db -->
+  <path d="M560,536 L560,572" stroke="#2563eb" stroke-width="2" marker-end="url(#arrowBlue)"/>
+  <text x="572" y="560" class="note">writes rows into</text>
+
+  <!-- ===================== LANE 3: OUTPUT DB ===================== -->
+  <rect x="360" y="582" width="400" height="232" rx="14" fill="#1e293b"/>
+  <text x="380" y="610" class="dbttl" font-size="15">temp/site-gen/publisher/package.db</text>
+  <text x="380" y="628" class="dbrow" font-size="11" fill="#94a3b8">SQLite — same table shape as the Java Publisher</text>
+
+  <rect x="380" y="642" width="170" height="22" rx="4" fill="#334155"/><text x="390" y="657" class="dbrow">Resources</text>
+  <rect x="560" y="642" width="180" height="22" rx="4" fill="#334155"/><text x="570" y="657" class="dbrow">Metadata</text>
+  <rect x="380" y="670" width="170" height="22" rx="4" fill="#334155"/><text x="390" y="685" class="dbrow">Concepts / Properties</text>
+  <rect x="560" y="670" width="180" height="22" rx="4" fill="#334155"/><text x="570" y="685" class="dbrow">ValueSet_Codes</text>
+  <rect x="380" y="698" width="360" height="22" rx="4" fill="#3730a3"/><text x="390" y="713" class="dbrow">ValueSetList  + OIDs / Systems / Sources / Refs</text>
+  <rect x="380" y="726" width="360" height="22" rx="4" fill="#3730a3"/><text x="390" y="741" class="dbrow">CodeSystemList  + OIDs / Refs</text>
+  <text x="380" y="772" class="dbrow" fill="#cbd5e1" font-style="italic">↓ consumed by site-gen to render the artifact browser</text>
+  <path d="M560,786 L560,804" stroke="#cbd5e1" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <rect x="430" y="806" width="260" height="0" />
+  <text x="560" y="826" class="boxsub" text-anchor="middle" fill="#64748b">the published spec website</text>
+
+  <!-- ===================== LANE 4: COMPARE / VALIDATION ===================== -->
+  <text x="800" y="606" class="lane" fill="#b45309">3 · compare.ts  —  fidelity harness</text>
+
+  <rect x="800" y="618" width="320" height="196" rx="14" fill="#fffbeb" stroke="#b45309" stroke-width="1.5"/>
+  <text x="818" y="644" class="boxttl">Diff against the real thing</text>
+  <text x="816" y="666" class="boxsub">Compares our DB to the Java</text>
+  <text x="816" y="683" class="boxsub">Publisher's <tspan class="mono">output/package.db</tspan>.</text>
+  <text x="816" y="708" class="boxsub" font-weight="700" fill="#92400e">Keyed by identity, not row key:</text>
+  <text x="816" y="725" class="boxsub">• Resources by Type/Id</text>
+  <text x="816" y="742" class="boxsub">• Concepts by Resource|Code</text>
+  <text x="816" y="759" class="boxsub">• Index lists by ViewType|Url</text>
+  <text x="816" y="783" class="note" fill="#92400e">Build-identity fields (git, dates,</text>
+  <text x="816" y="798" class="note" fill="#92400e">tooling) are intentionally ignored.</text>
+
+  <!-- compare arrows -->
+  <path d="M760,690 L796,678" stroke="#b45309" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arrowAmber)"/>
+  <text x="700" y="676" class="note" fill="#b45309">actual</text>
+
+  <rect x="820" y="858" width="280" height="56" rx="10" fill="#fef3c7" stroke="#b45309" stroke-width="1.5"/>
+  <text x="838" y="880" class="boxttl" font-size="13">Java IG Publisher output</text>
+  <text x="838" y="900" class="mono">output/package.db   (expected)</text>
+  <path d="M960,858 L960,816" stroke="#b45309" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arrowAmber)"/>
+
+  <!-- legend / key idea -->
+  <rect x="40" y="600" width="300" height="214" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+  <text x="58" y="624" class="boxttl">Core idea</text>
+  <text x="58" y="648" class="boxsub">The Java Publisher does validation,</text>
+  <text x="58" y="665" class="boxsub">snapshots, terminology expansion and</text>
+  <text x="58" y="682" class="boxsub">HTML — slow &amp; heavy.</text>
+  <text x="58" y="708" class="boxsub" font-weight="700">This tool answers a narrower question:</text>
+  <text x="58" y="725" class="boxsub">given the compiled FHIR JSON, can we</text>
+  <text x="58" y="742" class="boxsub">directly emit the one artifact site-gen</text>
+  <text x="58" y="759" class="boxsub">needs — the <tspan class="mono">package.db</tspan>?</text>
+  <text x="58" y="784" class="note">Honest gaps: no FSH compile, no</text>
+  <text x="58" y="799" class="note">validation, no real term-server expansion.</text>
+</svg>

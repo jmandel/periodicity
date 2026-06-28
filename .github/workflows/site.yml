@@ -7,6 +7,9 @@ name: Build and deploy site
 on:
   push:
     branches: [main]
+  schedule:
+    # Weekly blank-cache publisher smoke. This does not deploy Pages.
+    - cron: '17 9 * * 1'
   workflow_dispatch:
 
 permissions:
@@ -15,11 +18,42 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
+  group: ${{ github.workflow }}-${{ github.event_name == 'schedule' && 'publisher-safety' || 'pages' }}
   cancel-in-progress: true
 
 jobs:
+  publisher-safety:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Cache Bun install cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+      - name: Install deps
+        run: bun install --frozen-lockfile
+      - name: Run publisher unit tests
+        run: bun run test:publisher
+      - name: Run blank-cache publisher smoke
+        run: bun run test:publisher:blank-cache
+      - name: Upload publisher diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: publisher-diagnostics
+          path: |
+            temp/site-gen/**/*.manifest.json
+            temp/site-gen/**/*.validation.json
+            temp/site-gen/**/*.compare.md
+          if-no-files-found: ignore
+
   build:
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -31,6 +65,20 @@ jobs:
         with:
           ruby-version: '3.3'
       - uses: oven-sh/setup-bun@v2
+      - name: Cache Bun install cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+      - name: Cache FHIR packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.fhir/packages
+          key: ${{ runner.os }}-fhir-${{ hashFiles('bun.lock', 'sushi-config.yaml', 'input/fsh/**/*.fsh', 'site-gen/publisher/**/*.ts') }}
+          restore-keys: |
+            ${{ runner.os }}-fhir-
       - name: Install native build deps
         run: |
           sudo apt-get update
@@ -39,12 +87,26 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Install Jekyll
         run: gem install jekyll --no-document
+      - name: Run publisher unit tests
+        run: bun run test:publisher
       - name: Build static site (site-gen renderer from the Publisher's package.db)
         run: bun run build:sitegen
         env:
           GRAPHVIZ_DOT: /usr/bin/dot
           VIEWER_BASE: https://cycle.fhir.me/view
           PAGES_CNAME: cycle.fhir.me
+      - name: Upload publisher diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: publisher-diagnostics-build
+          path: |
+            temp/site-gen/**/*.manifest.json
+            temp/site-gen/**/*.validation.json
+            temp/site-gen/**/*.compare.md
+            qa.html
+            qa.json
+          if-no-files-found: ignore
       - uses: actions/configure-pages@v5
       - name: Upload site as Pages artifact
         uses: actions/upload-pages-artifact@v3

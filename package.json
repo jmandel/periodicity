@@ -9,15 +9,21 @@
     "test:sitegen": "bash site-gen/test.sh",
     "check": "rm -rf input/resources && mkdir -p input/resources && EXAMPLE_OUT=input/resources/Bundle-period-tracking-longitudinal-example.json bun scripts/gen-example.ts && ./_sushi.sh && BUNDLE_FILE=input/resources/Bundle-period-tracking-longitudinal-example.json bun scripts/check-mvp.ts && bun scripts/check-view2.ts",
     "check:r4": "bun scripts/validate-r4-structures.ts --r4-package ~/.fhir/packages/hl7.fhir.r4.core#4.0.1",
-    "verify:viewer": "bun run build && bun scripts/verify-viewer.ts"
+    "verify:viewer": "bun run build && bun scripts/verify-viewer.ts",
+    "test:publisher": "bun test site-gen/publisher/*.test.ts",
+    "test:publisher:blank-cache": "bun scripts/check-publisher-blank-cache.ts",
+    "experiment:package-db": "bun site-gen/publisher/build.ts",
+    "experiment:package-db:compare": "bun site-gen/publisher/compare.ts"
   },
   "devDependencies": {
     "esbuild": "^0.24.0",
+    "fhir-package-loader": "2.2.4",
     "fsh-sushi": "3.20.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "dependencies": {
+    "fhirpath": "4.10.1",
     "jsqr": "^1.4.0",
     "liquidjs": "^10.27.1",
     "markdown-it": "^14.2.0",

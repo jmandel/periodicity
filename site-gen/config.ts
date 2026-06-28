@@ -1,9 +1,9 @@
 /**
  * config.ts — link-classification helper. The project's externalLinks list lives
- * in project/cycle.ts (the visible project contract); this just compiles it into
+ * in project/ (the visible project contract); this just compiles it into
  * a matcher the link checker uses for artifacts injected by a later build step.
  */
-import { project } from './project/cycle';
+import { project } from './project';
 
 const toRegex = (glob: string) =>
   new RegExp('^' + glob.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*') + '$');
