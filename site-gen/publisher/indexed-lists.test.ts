@@ -5,6 +5,7 @@ import {
   deriveIndexedListRows,
   externalValueSetWeb,
   packageSourceLabel,
+  questionnaireAnswerValueSetUrls,
   sourceForSystem,
   structureDefinitionBindingValueSetUrls,
   valueSetSystemSource,
@@ -126,6 +127,19 @@ describe('publisher list-index helpers', () => {
     ]);
   });
 
+  test('extracts nested Questionnaire answer ValueSet URLs', () => {
+    expect(questionnaireAnswerValueSetUrls({
+      resourceType: 'Questionnaire',
+      item: [
+        { answerValueSet: 'http://example.org/ValueSet/root|1.0.0' },
+        { item: [{ answerValueSet: 'http://example.org/ValueSet/child' }] },
+      ],
+    })).toEqual([
+      'http://example.org/ValueSet/child',
+      'http://example.org/ValueSet/root',
+    ]);
+  });
+
   test('uses the source FHIR core package when building external ValueSet links', () => {
     expect(externalValueSetWeb(
       { resourceType: 'ValueSet', id: 'observation-codes', url: 'http://hl7.org/fhir/ValueSet/observation-codes' },
@@ -231,6 +245,48 @@ describe('publisher list-index helpers', () => {
       { codeSystemListKey: 1, oid: '1.2.3' },
       { codeSystemListKey: 2, oid: '1.2.3' },
       { codeSystemListKey: 3, oid: '1.2.3' },
+    ]);
+  });
+
+  test('derives ValueSet refs from Questionnaire answerValueSet fields', () => {
+    const valueSet = {
+      resourceType: 'ValueSet',
+      id: 'answers',
+      url: 'http://example.org/ValueSet/answers',
+      compose: { include: [{ system: 'http://example.org/CodeSystem/answers' }] },
+    };
+    const questionnaire = {
+      resourceType: 'Questionnaire',
+      id: 'survey',
+      title: 'Survey',
+      item: [{ linkId: 'q1', answerValueSet: valueSet.url }],
+    };
+    const rows = deriveIndexedListRows(
+      [valueSet, questionnaire],
+      new Map([
+        ['ValueSet/answers', 1],
+        ['Questionnaire/survey', 2],
+      ]),
+      { current: emptyIndex(), core: emptyIndex(), dependencies: emptyIndex() },
+    );
+
+    expect(rows.valueSetRefRows).toEqual([
+      {
+        valueSetListKey: 2,
+        type: 'Questionnaire',
+        id: 'survey',
+        resourceKey: 2,
+        title: 'Survey',
+        web: 'Questionnaire-survey.html',
+      },
+      {
+        valueSetListKey: 3,
+        type: 'Questionnaire',
+        id: 'survey',
+        resourceKey: 2,
+        title: 'Survey',
+        web: 'Questionnaire-survey.html',
+      },
     ]);
   });
 });

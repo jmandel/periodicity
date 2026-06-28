@@ -11,7 +11,7 @@ import { pageFor, resourceRef } from './rows';
 
 type Json = Record<string, any>;
 
-export type ListRef = { type: 'StructureDefinition' | 'ValueSet'; resource: Json };
+export type ListRef = { type: 'Questionnaire' | 'StructureDefinition' | 'ValueSet'; resource: Json };
 
 export type ValueSetListRow = {
   key: number;
@@ -142,6 +142,19 @@ export function structureDefinitionBindingValueSetUrls(sd: Json, mode: 'differen
   return [...new Set((elements || []).flatMap((e: any) => bindingValueSetUrls(e.binding)))] as string[];
 }
 
+export function questionnaireAnswerValueSetUrls(questionnaire: Json): string[] {
+  const urls = new Set<string>();
+  const walk = (items: Json[] = []) => {
+    for (const item of items) {
+      const url = canonicalNoVersion(item.answerValueSet);
+      if (url) urls.add(url);
+      if (Array.isArray(item.item)) walk(item.item);
+    }
+  };
+  walk(questionnaire.item || []);
+  return [...urls].sort((a, b) => a.localeCompare(b));
+}
+
 export function mergeRefs(...groups: Array<ListRef[] | undefined>): ListRef[] {
   const out = new Map<string, ListRef>();
   for (const group of groups) {
@@ -257,12 +270,18 @@ export function deriveIndexedListRows(
   const findCodeSystem = (url: string): Json | undefined => resolveCodeSystemForList(url, indexes);
   const localBindings = new Map<string, ListRef[]>();
   const snapshotBindings = new Map<string, ListRef[]>();
+  const artifactValueSetRefs = new Map<string, ListRef[]>();
   for (const sd of profiles) {
     for (const vsUrl of structureDefinitionBindingValueSetUrls(sd, 'differential')) {
       localBindings.set(vsUrl, [...(localBindings.get(vsUrl) || []), { type: 'StructureDefinition', resource: sd }]);
     }
     for (const vsUrl of structureDefinitionBindingValueSetUrls(sd, 'snapshot')) {
       snapshotBindings.set(vsUrl, [...(snapshotBindings.get(vsUrl) || []), { type: 'StructureDefinition', resource: sd }]);
+    }
+  }
+  for (const questionnaire of resources.filter((r) => r.resourceType === 'Questionnaire' && r.id).sort((a, b) => a.id.localeCompare(b.id))) {
+    for (const vsUrl of questionnaireAnswerValueSetUrls(questionnaire)) {
+      artifactValueSetRefs.set(vsUrl, [...(artifactValueSetRefs.get(vsUrl) || []), { type: 'Questionnaire', resource: questionnaire }]);
     }
   }
 
@@ -306,23 +325,23 @@ export function deriveIndexedListRows(
 
   for (const vs of localValueSets) addValueSetRow(1, vs, [], true);
   for (const vs of localValueSets) {
-    addValueSetRow(2, vs, mergeRefs(localBindings.get(vs.url), valueSetImportRefs.get(vs.url)), true);
+    addValueSetRow(2, vs, mergeRefs(localBindings.get(vs.url), artifactValueSetRefs.get(vs.url), valueSetImportRefs.get(vs.url)), true);
   }
-  for (const url of [...localBindings.keys()].sort((a, b) => a.localeCompare(b))) {
+  for (const url of [...new Set([...localBindings.keys(), ...artifactValueSetRefs.keys()])].sort((a, b) => a.localeCompare(b))) {
     if (localByUrl.has(url)) continue;
     const vs = findValueSet(url);
-    if (vs) addValueSetRow(2, vs, localBindings.get(url) || [], Boolean(localByUrl.get(url)));
+    if (vs) addValueSetRow(2, vs, mergeRefs(localBindings.get(url), artifactValueSetRefs.get(url)), Boolean(localByUrl.get(url)));
   }
 
-  const externalUrls = [...snapshotBindings.keys()]
+  const externalUrls = [...new Set([...snapshotBindings.keys(), ...artifactValueSetRefs.keys()])]
     .filter((url) => !localByUrl.has(url))
     .sort((a, b) => a.localeCompare(b));
   for (const url of externalUrls) {
     const vs = findValueSet(url);
-    if (vs) addValueSetRow(3, vs, snapshotBindings.get(url) || [], false);
+    if (vs) addValueSetRow(3, vs, mergeRefs(snapshotBindings.get(url), artifactValueSetRefs.get(url)), false);
   }
   for (const vs of localValueSets) {
-    addValueSetRow(3, vs, mergeRefs(snapshotBindings.get(vs.url), valueSetImportRefs.get(vs.url)), true);
+    addValueSetRow(3, vs, mergeRefs(snapshotBindings.get(vs.url), artifactValueSetRefs.get(vs.url), valueSetImportRefs.get(vs.url)), true);
   }
 
   const codeSystemRows: { key: number; view: number; cs: Json; refs: Json[]; local: boolean; system: string }[] = [];
