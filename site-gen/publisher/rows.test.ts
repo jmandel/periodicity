@@ -190,7 +190,7 @@ describe('package DB row derivation', () => {
         date: '2026-01-01',
         name: 'DemoProfile',
         experimental: 'false',
-        description: 'Profile from IG manifest',
+        description: null,
         derivation: 'constraint',
         kind: 'resource',
         sdType: 'Observation',
@@ -198,6 +198,58 @@ describe('package DB row derivation', () => {
         json: JSON.stringify(resources[1]),
       }),
     ]);
+  });
+
+  test('propagates IG standards status to non-example canonical resources', () => {
+    const standardsStatus = 'http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status';
+    const resources = [
+      {
+        resourceType: 'ImplementationGuide',
+        id: 'demo',
+        url: 'http://example.org/ImplementationGuide/demo',
+        status: 'active',
+        extension: [{ url: standardsStatus, valueCode: 'trial-use' }],
+      },
+      {
+        resourceType: 'StructureDefinition',
+        id: 'profile',
+        url: 'http://example.org/StructureDefinition/profile',
+        status: 'active',
+      },
+      {
+        resourceType: 'Questionnaire',
+        id: 'example',
+        url: 'http://example.org/Questionnaire/example',
+        status: 'active',
+      },
+      {
+        resourceType: 'CodeSystem',
+        id: 'experimental',
+        url: 'http://example.org/CodeSystem/experimental',
+        status: 'active',
+        experimental: true,
+      },
+      {
+        resourceType: 'ValueSet',
+        id: 'profiled-example-terminology',
+        url: 'http://example.org/ValueSet/profiled-example-terminology',
+        status: 'active',
+        experimental: true,
+        meta: { profile: ['http://example.org/StructureDefinition/terminology-profile'] },
+      },
+    ];
+    const metadata = new Map([
+      ['Questionnaire/example', { exampleCanonical: 'http://example.org/StructureDefinition/q' }],
+    ]);
+
+    const rows = deriveResourceRows(resources, metadata, {}).rows;
+    const byId = new Map(rows.map((r) => [r.id, r]));
+
+    expect(byId.get('demo')?.standardStatus).toBe('trial-use');
+    expect(byId.get('profile')?.standardStatus).toBe('trial-use');
+    expect(byId.get('example')?.standardStatus).toBeNull();
+    expect(byId.get('experimental')?.standardStatus).toBe('informative');
+    expect(byId.get('profiled-example-terminology')?.standardStatus).toBeNull();
   });
 
   test('derives ValueSet_Codes rows from prepared expansions', () => {

@@ -320,6 +320,72 @@ describe('publisher list-index helpers', () => {
     ]);
   });
 
+  test('uses Publisher-style terminology metadata for CodeSystem list rows only when CrossView exposes it', () => {
+    const valueSet = {
+      resourceType: 'ValueSet',
+      id: 'lab-codes',
+      url: 'http://example.org/ValueSet/lab-codes',
+      compose: {
+        include: [
+          { system: 'http://loinc.org' },
+          { system: 'http://nucc.org/provider-taxonomy' },
+          { system: 'urn:ietf:bcp:13' },
+          { system: 'urn:iso:std:iso:3166' },
+          { system: 'http://terminology.hl7.org/CodeSystem/v2-0360|2.7' },
+        ],
+      },
+    };
+    const terminologyCodeSystems = new Map([
+      ['http://loinc.org', {
+        resourceType: 'CodeSystem',
+        url: 'http://loinc.org',
+        status: 'active',
+        name: 'LOINC',
+        content: 'not-present',
+      }],
+      ['http://nucc.org/provider-taxonomy', {
+        resourceType: 'CodeSystem',
+        url: 'http://nucc.org/provider-taxonomy',
+        status: 'active',
+        name: 'NUCC_Provider_Taxonomy',
+      }],
+      ['urn:ietf:bcp:13', {
+        resourceType: 'CodeSystem',
+        url: 'urn:ietf:bcp:13',
+        status: 'active',
+        name: 'MimeTypes',
+      }],
+      ['urn:iso:std:iso:3166', {
+        resourceType: 'CodeSystem',
+        url: 'urn:iso:std:iso:3166',
+        status: 'active',
+        name: 'ISO3166',
+      }],
+      ['http://terminology.hl7.org/CodeSystem/v2-0360', {
+        resourceType: 'CodeSystem',
+        url: 'http://terminology.hl7.org/CodeSystem/v2-0360',
+        status: 'active',
+        name: 'DegreeLicenseCertificate',
+      }],
+    ]);
+
+    const rows = deriveIndexedListRows(
+      [valueSet],
+      new Map([['ValueSet/lab-codes', 1]]),
+      { current: emptyIndex(), core: emptyIndex(), dependencies: emptyIndex(), terminologyCodeSystems },
+    );
+
+    expect(rows.valueSetSystemRows.map((row) => row.url)).toContain('http://terminology.hl7.org/CodeSystem/v2-0360|2.7');
+    expect(rows.codeSystemRows.map((row) => [row.viewType, row.url])).toEqual([
+      [2, 'http://loinc.org'],
+      [3, 'http://loinc.org'],
+    ]);
+    expect(rows.codeSystemRefRows.map((row) => [row.codeSystemListKey, row.type, row.id])).toEqual([
+      [1, 'ValueSet', 'lab-codes'],
+      [2, 'ValueSet', 'lab-codes'],
+    ]);
+  });
+
   test('adds local oids.ini assignments to local list rows only', () => {
     const localValueSet = {
       resourceType: 'ValueSet',

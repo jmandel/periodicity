@@ -30,13 +30,12 @@ describe('package resource index', () => {
 
       const pkg = fixturePackage(root);
       expect(packageResourceFiles(pkg).map((f) => f.slice(root.length + 1))).toEqual(['CodeSystem-indexed.json']);
-      expect(buildPackageResourceIndex([pkg])).toEqual([
-        {
-          package: { name: 'example.package', version: '1.0.0' },
-          sourcePath: join(root, 'CodeSystem-indexed.json'),
-          resource: { resourceType: 'CodeSystem', id: 'indexed', url: 'http://example.org/cs' },
-        },
-      ]);
+      const index = buildPackageResourceIndex([pkg]);
+      expect(index).toHaveLength(1);
+      expect(index[0]?.package.name).toBe('example.package');
+      expect(index[0]?.package.version).toBe('1.0.0');
+      expect(index[0]?.sourcePath).toBe(join(root, 'CodeSystem-indexed.json'));
+      expect(index[0]?.resource).toEqual({ resourceType: 'CodeSystem', id: 'indexed', url: 'http://example.org/cs' });
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

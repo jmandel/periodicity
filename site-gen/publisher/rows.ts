@@ -142,9 +142,46 @@ function extensionValue(resourceOrConfig: Json, url: string, field: string): unk
   return (resourceOrConfig.extension || []).find((e: any) => e.url === url)?.[field];
 }
 
-function standardStatus(resource: Json, cfg: Json): string | null {
-  return scalarString(extensionValue(resource, 'http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status', 'valueCode'))
-    || scalarString(extensionValue(cfg, 'http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status', 'valueCode'));
+const NON_IMPLEMENTABLE_STATUS_TYPES = new Set([
+  'ChargeItemDefinition',
+  'Citation',
+  'ConditionDefinition',
+  'EvidenceReport',
+  'EvidenceVariable',
+  'ExampleScenario',
+  'ObservationDefinition',
+]);
+
+function standardStatus(resource: Json): string | null {
+  return scalarString(extensionValue(resource, 'http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status', 'valueCode'));
+}
+
+function isExampleResource(meta: Json | undefined): boolean {
+  return meta?.exampleBoolean === true || typeof meta?.exampleCanonical === 'string' || typeof meta?.profile === 'string';
+}
+
+function igCanonicalBase(ig: Json | undefined): string | null {
+  const url = scalarString(ig?.url);
+  return url?.replace(/\/ImplementationGuide\/[^/]+$/, '') ?? null;
+}
+
+function hasCurrentIgProfile(resource: Json, igCanonical: string | null): boolean {
+  if (!igCanonical || !Array.isArray(resource.meta?.profile)) return false;
+  return resource.meta.profile.some((p: unknown) => typeof p === 'string' && p.startsWith(`${igCanonical}/StructureDefinition/`));
+}
+
+function propagatedStandardStatus(resource: Json, meta: Json | undefined, igStandardStatus: string | null, igCanonical: string | null): string | null {
+  const explicit = standardStatus(resource);
+  if (explicit || !igStandardStatus || isExampleResource(meta)) return explicit;
+  if (
+    resource.experimental === true
+    && (resource.resourceType === 'CodeSystem' || resource.resourceType === 'Questionnaire' || resource.resourceType === 'ValueSet')
+    && hasCurrentIgProfile(resource, igCanonical)
+  ) {
+    return null;
+  }
+  if (resource.experimental === true || NON_IMPLEMENTABLE_STATUS_TYPES.has(String(resource.resourceType))) return 'informative';
+  return igStandardStatus;
 }
 
 function baseDefinitionForDb(resource: Json, cfg: Json): string | null {
@@ -190,6 +227,9 @@ export function deriveMetadataRows(args: {
 export function deriveResourceRows(resources: Json[], resourceMeta: Map<string, Json>, cfg: Json): ResourceRows {
   const rows: ResourceRow[] = [];
   const keyByRef = new Map<string, number>();
+  const ig = resources.find((r) => r.resourceType === 'ImplementationGuide');
+  const igStandardStatus = ig ? standardStatus(ig) : null;
+  const igCanonical = igCanonicalBase(ig);
   resources.forEach((r, i) => {
     const key = i + 1;
     keyByRef.set(resourceRef(r), key);
@@ -205,16 +245,16 @@ export function deriveResourceRows(resources: Json[], resourceMeta: Map<string, 
       version: canonicalResource ? r.version ?? null : null,
       status: r.status ?? null,
       date: canonicalResource ? r.date ?? null : null,
-      name: displayName(r, meta),
+      name: canonicalResource ? scalarString(r.name) : displayName(r, meta),
       title: scalarString(r.title),
       experimental: boolString(r.experimental),
       realm: null,
-      description: scalarString(r.description) || scalarString(meta?.description),
+      description: canonicalResource ? scalarString(r.description) : scalarString(r.description) || scalarString(meta?.description),
       purpose: scalarString(r.purpose),
       copyright: scalarString(r.copyright),
       copyrightLabel: scalarString(r.copyrightLabel),
       derivation: scalarString(r.derivation),
-      standardStatus: canonicalResource ? standardStatus(r, cfg) : null,
+      standardStatus: canonicalResource ? propagatedStandardStatus(r, meta, igStandardStatus, igCanonical) : null,
       kind: r.resourceType === 'StructureDefinition' ? scalarString(r.kind) : null,
       sdType: r.resourceType === 'StructureDefinition' ? scalarString(r.type) : null,
       base: r.resourceType === 'StructureDefinition' ? baseDefinitionForDb(r, cfg) : null,
