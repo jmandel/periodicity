@@ -21,9 +21,9 @@ import {
   buildCanonicalIndex,
   buildCurrentCanonicalIndex,
   canonicalIndexResources,
-  isRetiredNotPresentCodeSystem,
   isTerminologyPackageResource,
   resolvePublisherEntry,
+  shouldReplaceTerminologyStubWithTxMetadata,
   type PublisherCanonicalIndexes,
 } from './canonical';
 import {
@@ -386,7 +386,7 @@ async function fetchMissingCodeSystemMetadata(
     .filter((system) => !system.includes('|'))
     .filter((system) => {
       const entry = resolvePublisherEntry(indexes, { resourceType: 'CodeSystem', url: system });
-      return !entry || (isRetiredNotPresentCodeSystem(entry.resource) && isTerminologyPackageResource(entry));
+      return !entry || (shouldReplaceTerminologyStubWithTxMetadata(entry.resource) && isTerminologyPackageResource(entry));
     })
     .sort((a, b) => a.localeCompare(b));
 

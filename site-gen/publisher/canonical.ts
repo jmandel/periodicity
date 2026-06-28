@@ -36,6 +36,12 @@ export function isRetiredNotPresentCodeSystem(resource: Json | undefined): boole
   return /\b(retired|superseded|superceded)\b/i.test(text);
 }
 
+export function shouldReplaceTerminologyStubWithTxMetadata(resource: Json | undefined): boolean {
+  if (!isRetiredNotPresentCodeSystem(resource)) return false;
+  const text = [resource?.description, resource?.title, resource?.name].filter((v) => typeof v === 'string').join('\n');
+  return /\b(content was removed|ip licen[cs]ure|missing (the )?copyright)\b/i.test(text);
+}
+
 export function isTerminologyPackageResource(entry: IndexedResource): boolean {
   return entry.package?.name?.startsWith('hl7.terminology') === true;
 }
@@ -250,7 +256,7 @@ export function resolvePublisherEntry(
   for (const index of packageSearchOrder(indexes, request.resourceType, clean)) {
     const entry = resolveIndexedEntry(index, { ...request, url: clean });
     if (entry) {
-      if (terminologyCodeSystem && isRetiredNotPresentCodeSystem(entry.resource) && isTerminologyPackageResource(entry)) {
+      if (terminologyCodeSystem && shouldReplaceTerminologyStubWithTxMetadata(entry.resource) && isTerminologyPackageResource(entry)) {
         return {
           key: { resourceType: 'CodeSystem', url: clean, version: terminologyCodeSystem.version },
           sourcePath: `terminology:${clean}`,

@@ -179,11 +179,28 @@ describe('publisher list-index helpers', () => {
         resourceType: 'CodeSystem',
         url: system,
         content: 'not-present',
-        description: 'This code system stub has been retired and superceded.',
+        description: 'This code system stub has been retired, its content was removed for IP licensure reasons, and it is missing the copyright information.',
       },
     });
 
     expect(sourceForSystem({ core, dependencies }, new Set())(system)).toBe('Other');
+  });
+
+  test('keeps BCP-47 terminology package source labels from OID-registry metadata', () => {
+    const core = emptyIndex();
+    const dependencies = emptyIndex();
+    const system = 'urn:ietf:bcp:47';
+    addCodeSystem(dependencies, {
+      ...indexedCodeSystem(system, 'hl7.terminology.r4', { version: '6.2.0' }),
+      resource: {
+        resourceType: 'CodeSystem',
+        url: system,
+        content: 'not-present',
+        description: 'Older value from OID registry. Superceded; see recommendations in BCP-47.',
+      },
+    });
+
+    expect(sourceForSystem({ core, dependencies }, new Set())(system)).toBe('hl7.terminology.r4');
   });
 
   test('labels package CodeSystems without published package paths as Internal', () => {

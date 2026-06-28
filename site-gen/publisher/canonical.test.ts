@@ -149,7 +149,7 @@ describe('publisher canonical resolver', () => {
     })?.marker).toBe('package');
   });
 
-  test('uses terminology metadata instead of retired not-present package stubs', () => {
+  test('uses terminology metadata instead of retired not-present terminology stubs whose content was removed', () => {
     const current = buildCurrentCanonicalIndex([]);
     const core = emptyIndex();
     const dependencies = emptyIndex();
@@ -162,7 +162,7 @@ describe('publisher canonical resolver', () => {
         resourceType: 'CodeSystem',
         url,
         content: 'not-present',
-        description: 'This code system stub has been retired and superseded.',
+        description: 'This code system stub has been retired, its content was removed for IP licensure reasons, and it is missing the copyright information.',
         marker: 'package-stub',
       },
     });
@@ -174,6 +174,40 @@ describe('publisher canonical resolver', () => {
       resourceType: 'CodeSystem',
       url,
     })?.marker).toBe('tx');
+  });
+
+  test('keeps retired not-present terminology package metadata when tx metadata is only another placeholder', () => {
+    const current = buildCurrentCanonicalIndex([]);
+    const core = emptyIndex();
+    const dependencies = emptyIndex();
+    const url = 'urn:ietf:bcp:47';
+    add(dependencies, {
+      key: { resourceType: 'CodeSystem', url },
+      package: { name: 'hl7.terminology.r4', version: '6.2.0' },
+      sourcePath: '/packages/hl7.terminology.r4/CodeSystem-v3-ietf3066.json',
+      resource: {
+        resourceType: 'CodeSystem',
+        url,
+        version: '2.0.1',
+        content: 'not-present',
+        description: 'Older value from OID registry. Superceded; see recommendations in BCP-47.',
+        marker: 'package',
+      },
+    });
+    const terminologyCodeSystems = new Map([
+      [url, {
+        resourceType: 'CodeSystem',
+        url,
+        content: 'not-present',
+        description: 'This is a place holder for the code system which is fully supported through internal means.',
+        marker: 'tx-placeholder',
+      }],
+    ]);
+
+    expect(resolvePublisherResource({ current, core, dependencies, terminologyCodeSystems }, {
+      resourceType: 'CodeSystem',
+      url,
+    })?.marker).toBe('package');
   });
 
   test('keeps retired not-present non-terminology package CodeSystems before terminology metadata', () => {

@@ -1,10 +1,10 @@
 import {
   canonicalNoVersion,
-  isRetiredNotPresentCodeSystem,
   isTerminologyPackageResource,
   resolvePackageEntry,
   resolvePublisherEntry,
   resolvePublisherResource,
+  shouldReplaceTerminologyStubWithTxMetadata,
   type CanonicalIndex,
   type IndexedResource,
   type PublisherCanonicalIndexes,
@@ -117,7 +117,7 @@ function isFhirCorePackageName(name: string | undefined): boolean {
 }
 
 function preferredSourceLabelEntry(entries: IndexedResource[], terminologyFamily: string | null): IndexedResource | undefined {
-  const candidates = entries.filter((entry) => !(isRetiredNotPresentCodeSystem(entry.resource) && isTerminologyPackageResource(entry)));
+  const candidates = entries.filter((entry) => !(shouldReplaceTerminologyStubWithTxMetadata(entry.resource) && isTerminologyPackageResource(entry)));
   if (!candidates.length) return undefined;
 
   const internal = candidates.find((entry) => entry.package?.dir && !isFhirCorePackageName(entry.package.name) && !hasPublishedPackagePath(entry));
