@@ -76,13 +76,15 @@ export type IndexedListRows = {
 };
 
 export function packageSourceLabel(indexes: { core: CanonicalIndex; dependencies: CanonicalIndex }, system: string): string | null {
-  const coreEntry = indexes.core.byCodeSystemUrl.get(system);
-  const dependencyEntry = indexes.dependencies.byCodeSystemUrl.get(system);
-  const entry = system.startsWith('http://hl7.org/fhir/')
-    ? coreEntry || dependencyEntry
-    : dependencyEntry || coreEntry;
+  const coreEntries = codeSystemCandidates(indexes.core, system);
+  const dependencyEntries = codeSystemCandidates(indexes.dependencies, system);
+  const entries = system.startsWith('http://hl7.org/fhir/') && coreEntries.length
+    ? coreEntries
+    : [...dependencyEntries, ...coreEntries];
+  const entry = preferredSourceLabelEntry(entries, preferredTerminologyFamily(indexes.core));
   const packageName = entry?.package?.name;
   if (!packageName) return null;
+  if (entry?.package?.dir && !hasPublishedPackagePath(entry)) return 'Internal';
   const terminologyMatch = packageName.match(/^hl7\.terminology\.r[3456]/);
   if (terminologyMatch) return terminologyMatch[0];
   if (packageName.startsWith('hl7.fhir.r3')) return 'hl7.fhir.r3.core';
@@ -91,6 +93,51 @@ export function packageSourceLabel(indexes: { core: CanonicalIndex; dependencies
   if (packageName.startsWith('hl7.fhir.r5')) return 'hl7.fhir.r5.core';
   if (packageName.startsWith('hl7.fhir.r6')) return 'hl7.fhir.r6.core';
   return packageName;
+}
+
+function codeSystemCandidates(index: CanonicalIndex, system: string): IndexedResource[] {
+  const all = index.byCodeSystemUrlAll.get(system);
+  if (all?.length) return all;
+  const preferred = index.byCodeSystemUrl.get(system);
+  return preferred ? [preferred] : [];
+}
+
+function preferredTerminologyFamily(coreIndex: CanonicalIndex): string | null {
+  const corePackage = coreIndex.packages.find((pkg) => /^hl7\.fhir\.r(3|4|4b|5|6)\.core$/.test(pkg.name));
+  if (!corePackage) return null;
+  if (corePackage.name === 'hl7.fhir.r3.core') return 'hl7.terminology.r3';
+  if (corePackage.name === 'hl7.fhir.r5.core' || corePackage.name === 'hl7.fhir.r6.core') return 'hl7.terminology.r5';
+  return 'hl7.terminology.r4';
+}
+
+function preferredSourceLabelEntry(entries: IndexedResource[], terminologyFamily: string | null): IndexedResource | undefined {
+  if (!entries.length) return undefined;
+  const terminologyEntries = terminologyFamily
+    ? entries.filter((entry) => entry.package?.name === terminologyFamily)
+    : [];
+  const candidates = terminologyEntries.length ? terminologyEntries : entries;
+  return [...candidates].sort((a, b) => comparePackageVersionLike(a.package?.version, b.package?.version) || a.sourcePath.localeCompare(b.sourcePath)).at(-1);
+}
+
+function comparePackageVersionLike(a = '', b = ''): number {
+  const aa = a.split(/[.-]/);
+  const bb = b.split(/[.-]/);
+  const len = Math.max(aa.length, bb.length);
+  for (let i = 0; i < len; i++) {
+    const av = aa[i] ?? '0';
+    const bv = bb[i] ?? '0';
+    const an = /^\d+$/.test(av) ? Number(av) : NaN;
+    const bn = /^\d+$/.test(bv) ? Number(bv) : NaN;
+    const cmp = Number.isFinite(an) && Number.isFinite(bn) ? an - bn : av.localeCompare(bv);
+    if (cmp !== 0) return cmp;
+  }
+  return 0;
+}
+
+function hasPublishedPackagePath(entry: IndexedResource): boolean {
+  const paths = specInternalsPaths(entry);
+  if (!paths) return false;
+  return Boolean(entry.resource?.url && paths.has(entry.resource.url));
 }
 
 /**

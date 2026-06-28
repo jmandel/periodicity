@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { CanonicalIndex, IndexedResource } from './canonical';
@@ -20,17 +20,23 @@ function emptyIndex(): CanonicalIndex {
   return {
     byCanonical: new Map(),
     byCodeSystemUrl: new Map(),
+    byCodeSystemUrlAll: new Map(),
     byNamingSystemUri: new Map(),
     packages: [],
   };
 }
 
-function indexedCodeSystem(url: string, packageName: string): IndexedResource {
+function addCodeSystem(index: CanonicalIndex, entry: IndexedResource) {
+  index.byCodeSystemUrl.set(entry.key.url, entry);
+  index.byCodeSystemUrlAll.set(entry.key.url, [...(index.byCodeSystemUrlAll.get(entry.key.url) || []), entry]);
+}
+
+function indexedCodeSystem(url: string, packageName: string, options: { version?: string; dir?: string; manifest?: Record<string, any> } = {}): IndexedResource {
   return {
     key: { resourceType: 'CodeSystem', url },
-    package: { name: packageName, version: '1.0.0' },
-    sourcePath: `/packages/${packageName}/CodeSystem.json`,
-    resource: { resourceType: 'CodeSystem', url },
+    package: { name: packageName, version: options.version || '1.0.0', ...(options.dir ? { dir: options.dir } : {}), ...(options.manifest ? { manifest: options.manifest } : {}) },
+    sourcePath: `${options.dir || `/packages/${packageName}`}/CodeSystem.json`,
+    resource: { resourceType: 'CodeSystem', url, id: 'CodeSystem' },
   };
 }
 
@@ -91,7 +97,7 @@ describe('publisher list-index helpers', () => {
   test('derives package source labels from CodeSystems but not NamingSystem URI aliases', () => {
     const core = emptyIndex();
     const dependencies = emptyIndex();
-    dependencies.byCodeSystemUrl.set('urn:ietf:bcp:47', indexedCodeSystem('urn:ietf:bcp:47', 'hl7.terminology.r4'));
+    addCodeSystem(dependencies, indexedCodeSystem('urn:ietf:bcp:47', 'hl7.terminology.r4'));
     dependencies.byNamingSystemUri.set('urn:oid:2.16.840.1.113883.6.96', indexedNamingSystem('urn:oid:2.16.840.1.113883.6.96', 'hl7.terminology.r4'));
 
     const label = sourceForSystem({ core, dependencies }, new Set());
@@ -103,8 +109,8 @@ describe('publisher list-index helpers', () => {
     const core = emptyIndex();
     const dependencies = emptyIndex();
     const system = 'http://hl7.org/fhir/administrative-gender';
-    core.byCodeSystemUrl.set(system, indexedCodeSystem(system, 'hl7.fhir.r4.core'));
-    dependencies.byCodeSystemUrl.set(system, indexedCodeSystem(system, 'hl7.fhir.uv.xver-r5.r4'));
+    addCodeSystem(core, indexedCodeSystem(system, 'hl7.fhir.r4.core'));
+    addCodeSystem(dependencies, indexedCodeSystem(system, 'hl7.fhir.uv.xver-r5.r4'));
 
     expect(sourceForSystem({ core, dependencies }, new Set())(system)).toBe('hl7.fhir.r4.core');
   });
@@ -112,17 +118,52 @@ describe('publisher list-index helpers', () => {
   test('normalizes known core package source labels across FHIR versions', () => {
     const core = emptyIndex();
     const dependencies = emptyIndex();
-    core.byCodeSystemUrl.set('http://r3.example', indexedCodeSystem('http://r3.example', 'hl7.fhir.r3.core'));
-    core.byCodeSystemUrl.set('http://r4b.example', indexedCodeSystem('http://r4b.example', 'hl7.fhir.r4b.core'));
-    core.byCodeSystemUrl.set('http://r6.example', indexedCodeSystem('http://r6.example', 'hl7.fhir.r6.core'));
-    dependencies.byCodeSystemUrl.set('http://tx-r5.example', indexedCodeSystem('http://tx-r5.example', 'hl7.terminology.r5'));
-    dependencies.byCodeSystemUrl.set('http://tx-r6.example', indexedCodeSystem('http://tx-r6.example', 'hl7.terminology.r6'));
+    addCodeSystem(core, indexedCodeSystem('http://r3.example', 'hl7.fhir.r3.core'));
+    addCodeSystem(core, indexedCodeSystem('http://r4b.example', 'hl7.fhir.r4b.core'));
+    addCodeSystem(core, indexedCodeSystem('http://r6.example', 'hl7.fhir.r6.core'));
+    addCodeSystem(dependencies, indexedCodeSystem('http://tx-r5.example', 'hl7.terminology.r5'));
+    addCodeSystem(dependencies, indexedCodeSystem('http://tx-r6.example', 'hl7.terminology.r6'));
 
     expect(packageSourceLabel({ core, dependencies }, 'http://r3.example')).toBe('hl7.fhir.r3.core');
     expect(packageSourceLabel({ core, dependencies }, 'http://r4b.example')).toBe('hl7.fhir.r4b.core');
     expect(packageSourceLabel({ core, dependencies }, 'http://r6.example')).toBe('hl7.fhir.r6.core');
     expect(packageSourceLabel({ core, dependencies }, 'http://tx-r5.example')).toBe('hl7.terminology.r5');
     expect(packageSourceLabel({ core, dependencies }, 'http://tx-r6.example')).toBe('hl7.terminology.r6');
+  });
+
+  test('prefers source-label CodeSystems from the matching FHIR terminology family', () => {
+    const core = emptyIndex();
+    const dependencies = emptyIndex();
+    core.packages.push({
+      name: 'hl7.fhir.r4.core',
+      version: '4.0.1',
+      dir: '/packages/hl7.fhir.r4.core/package',
+      manifest: { name: 'hl7.fhir.r4.core', version: '4.0.1' },
+      acquisition: { source: 'cache', packageDir: '' },
+      resolution: { role: 'core', loadDependencies: false },
+    });
+    const system = 'http://www.ama-assn.org/go/cpt';
+    addCodeSystem(dependencies, indexedCodeSystem(system, 'hl7.terminology.r5', { version: '6.4.0' }));
+    addCodeSystem(dependencies, indexedCodeSystem(system, 'hl7.terminology.r4', { version: '6.5.0' }));
+
+    expect(packageSourceLabel({ core, dependencies }, system)).toBe('hl7.terminology.r4');
+  });
+
+  test('labels package CodeSystems without published package paths as Internal', () => {
+    const root = mkdtempSync(join(tmpdir(), 'indexed-list-source-label-'));
+    try {
+      const core = emptyIndex();
+      const dependencies = emptyIndex();
+      const system = 'https://nahdo.org/sopt';
+      addCodeSystem(dependencies, indexedCodeSystem(system, 'us.nlm.vsac', {
+        dir: root,
+        manifest: { name: 'us.nlm.vsac', version: '0.24.0', url: 'http://fhir.org/packages/us.nlm.vsac' },
+      }));
+
+      expect(packageSourceLabel({ core, dependencies }, system)).toBe('Internal');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   test('extracts primary and additional binding ValueSet URLs', () => {

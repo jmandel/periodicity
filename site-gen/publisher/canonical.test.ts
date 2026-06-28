@@ -16,6 +16,7 @@ function emptyIndex(): CanonicalIndex {
   return {
     byCanonical: new Map(),
     byCodeSystemUrl: new Map(),
+    byCodeSystemUrlAll: new Map(),
     byNamingSystemUri: new Map(),
     packages: [],
   };
@@ -32,7 +33,10 @@ function indexed(resourceType: string, url: string, packageName: string, marker:
 
 function add(index: CanonicalIndex, entry: IndexedResource) {
   index.byCanonical.set(`${entry.key.resourceType}|${entry.key.url}`, entry);
-  if (entry.key.resourceType === 'CodeSystem') index.byCodeSystemUrl.set(entry.key.url, entry);
+  if (entry.key.resourceType === 'CodeSystem') {
+    index.byCodeSystemUrl.set(entry.key.url, entry);
+    index.byCodeSystemUrlAll.set(entry.key.url, [...(index.byCodeSystemUrlAll.get(entry.key.url) || []), entry]);
+  }
 }
 
 function fixturePackage(root: string, name: string, version: string, resources: Record<string, any>[]): ResolvedPackage {
@@ -103,6 +107,23 @@ describe('publisher canonical resolver', () => {
       const index = buildCanonicalIndex([oldXver, oldTho, newTho]);
       expect(index.byCanonical.get(`CodeSystem|${url}`)?.resource.marker).toBe('tho-7.2');
       expect(index.byCodeSystemUrl.get(url)?.resource.marker).toBe('tho-7.2');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('keeps all CodeSystem candidates and lets later same-version package files win', () => {
+    const root = mkdtempSync(join(tmpdir(), 'canonical-index-'));
+    try {
+      const url = 'http://hl7.org/fhir/sid/icd-9-cm';
+      const terminology = fixturePackage(root, 'hl7.terminology.r4', '6.5.0', [
+        { resourceType: 'CodeSystem', id: 'ICD-9CM-diagnosiscodes', url, version: '3.0.0', marker: 'diagnosis' },
+        { resourceType: 'CodeSystem', id: 'ICD-9CM-procedurecodes', url, version: '3.0.0', marker: 'procedure' },
+      ]);
+
+      const index = buildCanonicalIndex([terminology]);
+      expect(index.byCodeSystemUrl.get(url)?.resource.marker).toBe('procedure');
+      expect(index.byCodeSystemUrlAll.get(url)?.map((entry) => entry.resource.marker)).toEqual(['diagnosis', 'procedure']);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

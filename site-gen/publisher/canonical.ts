@@ -17,6 +17,7 @@ export type IndexedResource = {
 export type CanonicalIndex = {
   byCanonical: Map<string, IndexedResource>;
   byCodeSystemUrl: Map<string, IndexedResource>;
+  byCodeSystemUrlAll: Map<string, IndexedResource[]>;
   byNamingSystemUri: Map<string, IndexedResource>;
   packages: ResolvedPackage[];
 };
@@ -41,6 +42,7 @@ function emptyCanonicalIndex(packages: ResolvedPackage[] = []): CanonicalIndex {
   return {
     byCanonical: new Map(),
     byCodeSystemUrl: new Map(),
+    byCodeSystemUrlAll: new Map(),
     byNamingSystemUri: new Map(),
     packages,
   };
@@ -94,6 +96,15 @@ function shouldReplaceIndexedResource(existing: IndexedResource, candidate: Inde
   const existingPriority = packageResourcePriority(existing);
   const candidatePriority = packageResourcePriority(candidate);
   if (candidatePriority !== existingPriority) return candidatePriority > existingPriority;
+  if (
+    candidate.package?.name === existing.package?.name
+    && candidate.package?.version === existing.package?.version
+    && candidate.key.resourceType === existing.key.resourceType
+    && candidate.key.url === existing.key.url
+    && candidate.key.version === existing.key.version
+  ) {
+    return candidate.sourcePath.localeCompare(existing.sourcePath) > 0;
+  }
   if (candidatePriority > 0) return comparePackageVersions(candidate.package?.version, existing.package?.version) > 0;
   return false;
 }
@@ -128,6 +139,7 @@ function indexResource(
   };
   if (resource.resourceType === 'CodeSystem' && resource.url) {
     const codeSystemUrl = canonicalNoVersion(resource.url) || resource.url;
+    index.byCodeSystemUrlAll.set(codeSystemUrl, [...(index.byCodeSystemUrlAll.get(codeSystemUrl) || []), indexed]);
     setPreferred(index.byCodeSystemUrl, codeSystemUrl, indexed);
   }
   if (resource.resourceType === 'NamingSystem' && Array.isArray(resource.uniqueId)) {
