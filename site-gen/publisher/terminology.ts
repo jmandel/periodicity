@@ -1,5 +1,5 @@
 import type { Json } from './packages';
-import { readOrFetchTx, txCachePath, type TxRequest } from './tx-cache';
+import { readOrFetchTx, stableJson, txCachePath, type TxRequest } from './tx-cache';
 
 export type ValueSetClassification =
   | { kind: 'local-extensional'; reasons: string[] }
@@ -617,8 +617,39 @@ function codeSystemFromSearchResponse(system: string, response: Json): Json {
   const matches = (response.entry || [])
     .map((entry: Json) => entry.resource)
     .filter((resource: Json) => resource?.resourceType === 'CodeSystem' && (!resource.url || resource.url === system));
-  if (matches.length !== 1) throw new Error(`${system}: terminology server returned ${matches.length} matching CodeSystems`);
-  return matches[0];
+  if (!matches.length) throw new Error(`${system}: terminology server returned 0 matching CodeSystems`);
+  return matches.sort(compareCodeSystemMetadata).at(-1)!;
+}
+
+function compareCodeSystemMetadata(a: Json, b: Json): number {
+  return compareBoolean(a.status === 'active', b.status === 'active')
+    || compareVersionLike(a.version, b.version)
+    || compareDateLike(a.date, b.date)
+    || stableCompare(stableJson(a), stableJson(b));
+}
+
+function compareBoolean(a: boolean, b: boolean): number {
+  return Number(a) - Number(b);
+}
+
+function compareDateLike(a: unknown, b: unknown): number {
+  const aTime = typeof a === 'string' ? Date.parse(a) : NaN;
+  const bTime = typeof b === 'string' ? Date.parse(b) : NaN;
+  if (!Number.isNaN(aTime) && !Number.isNaN(bTime) && aTime !== bTime) return aTime - bTime;
+  if (!Number.isNaN(aTime) !== !Number.isNaN(bTime)) return Number(!Number.isNaN(aTime)) - Number(!Number.isNaN(bTime));
+  return 0;
+}
+
+function compareVersionLike(a: unknown, b: unknown): number {
+  const left = typeof a === 'string' ? a : '';
+  const right = typeof b === 'string' ? b : '';
+  if (left && !right) return 1;
+  if (!left && right) return -1;
+  return stableCompare(left, right);
+}
+
+function stableCompare(a: string, b: string): number {
+  return a.localeCompare(b, 'en', { numeric: true, sensitivity: 'base' });
 }
 
 function operationOutcomeMessage(outcome: Json): string {

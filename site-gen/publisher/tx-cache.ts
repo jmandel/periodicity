@@ -129,9 +129,12 @@ function assertCacheableTxResponse(request: TxRequest, response: Json): void {
   } else if (request.operation === 'CodeSystem?url') {
     if (response.resourceType === 'CodeSystem') return;
     if (response.resourceType === 'Bundle') {
-      const codeSystems = (response.entry || []).filter((e: Json) => e.resource?.resourceType === 'CodeSystem');
-      if (codeSystems.length === 1) return;
-      throw new Error(`Refusing to cache terminology response for ${request.operation}: expected exactly one CodeSystem entry, got ${codeSystems.length}`);
+      const requestedUrl = String(request.parameters.url || '');
+      const codeSystems = (response.entry || [])
+        .map((e: Json) => e.resource)
+        .filter((resource: Json) => resource?.resourceType === 'CodeSystem' && (!requestedUrl || !resource.url || resource.url === requestedUrl));
+      if (codeSystems.length > 0) return;
+      throw new Error(`Refusing to cache terminology response for ${request.operation}: expected at least one matching CodeSystem entry, got ${codeSystems.length}`);
     }
     throw new Error(`Refusing to cache terminology response for ${request.operation}: expected Bundle or CodeSystem, got ${response.resourceType || 'non-FHIR JSON'}`);
   } else if (request.operation === 'ValueSet/$validate-code' || request.operation === 'CodeSystem/$validate-code') {

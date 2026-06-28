@@ -306,7 +306,32 @@ describe('terminology cache hygiene', () => {
     try {
       await expect(readOrFetchTx(req, { cacheDir: dir, mode: 'online' })).rejects.toThrow('uncacheable');
       expect(existsSync(txCachePath(dir, req))).toBe(false);
-      expect(readFileSync(errorLog, 'utf8')).toContain('expected exactly one CodeSystem entry');
+      expect(readFileSync(errorLog, 'utf8')).toContain('expected at least one matching CodeSystem entry');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('caches CodeSystem metadata searches with multiple matching versions', async () => {
+    const dir = tempDir('tx-cache-codesystem-multi-');
+    process.env.PUBLISHER_TX_ERROR_LOG = join(dir, 'errors.jsonl');
+    const req = {
+      ...codeSystemRequest(),
+      parameters: { url: 'http://loinc.org' },
+    };
+    globalThis.fetch = async () => new Response(JSON.stringify({
+      resourceType: 'Bundle',
+      total: 2,
+      entry: [
+        { resource: { resourceType: 'CodeSystem', url: 'http://loinc.org', version: '2.77', status: 'active' } },
+        { resource: { resourceType: 'CodeSystem', url: 'http://loinc.org', version: '2.82', status: 'active' } },
+      ],
+    }), { status: 200, statusText: 'OK' });
+
+    try {
+      await expect(readOrFetchTx(req, { cacheDir: dir, mode: 'online' })).resolves.toMatchObject({ source: 'online' });
+      expect(existsSync(txCachePath(dir, req))).toBe(true);
+      expect(existsSync(process.env.PUBLISHER_TX_ERROR_LOG!)).toBe(false);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

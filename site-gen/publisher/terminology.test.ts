@@ -5,9 +5,11 @@ import { join } from 'node:path';
 import {
   assertValueSetExpansionSupported,
   classifyValueSet,
+  codeSystemSearchRequest,
   codeSystemValidateCodeRequest,
   defaultTerminologyServerForFhirVersion,
   expandValueSet,
+  fetchCodeSystemMetadata,
   prepareValueSetExpansions,
   terminologyResourceContext,
   validateCodeResultFromParameters,
@@ -36,6 +38,39 @@ describe('ValueSet terminology classification', () => {
     expect(defaultTerminologyServerForFhirVersion('5.0.0')).toBe('https://tx.fhir.org/r5');
     expect(defaultTerminologyServerForFhirVersion('6.0.0-ballot3')).toBe('https://tx.fhir.org/r6');
     expect(() => defaultTerminologyServerForFhirVersion('2.0.0')).toThrow('PUBLISHER_TX_SERVER');
+  });
+
+  test('selects the active highest-version CodeSystem from metadata search results', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'terminology-codesystem-metadata-'));
+    const request = codeSystemSearchRequest('http://loinc.org', {
+      mode: 'cache',
+      cacheDir: dir,
+      server: 'https://tx.fhir.org/r4',
+      fhirVersion: '4.0.1',
+    });
+    writeTxCache(dir, request, {
+      resourceType: 'Bundle',
+      total: 3,
+      entry: [
+        { resource: { resourceType: 'CodeSystem', url: 'http://loinc.org', version: '2.82', status: 'retired' } },
+        { resource: { resourceType: 'CodeSystem', url: 'http://loinc.org', version: '2.77', status: 'active' } },
+        { resource: { resourceType: 'CodeSystem', url: 'http://loinc.org', version: '2.82', status: 'active' } },
+      ],
+    });
+
+    try {
+      const result = await fetchCodeSystemMetadata('http://loinc.org', {
+        mode: 'cache',
+        cacheDir: dir,
+        server: 'https://tx.fhir.org/r4',
+        fhirVersion: '4.0.1',
+      });
+      expect(result.source).toBe('tx-cache');
+      expect(result.codeSystem.version).toBe('2.82');
+      expect(result.codeSystem.status).toBe('active');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   test('classifies local explicit concepts as locally expandable', () => {
