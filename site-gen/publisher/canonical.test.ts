@@ -149,6 +149,88 @@ describe('publisher canonical resolver', () => {
     })?.marker).toBe('package');
   });
 
+  test('uses terminology metadata instead of retired not-present package stubs', () => {
+    const current = buildCurrentCanonicalIndex([]);
+    const core = emptyIndex();
+    const dependencies = emptyIndex();
+    const url = 'http://example.org/retired-stub';
+    add(dependencies, {
+      key: { resourceType: 'CodeSystem', url },
+      package: { name: 'hl7.terminology.r4', version: '1.0.0' },
+      sourcePath: '/packages/hl7.terminology.r4/CodeSystem-retired.json',
+      resource: {
+        resourceType: 'CodeSystem',
+        url,
+        content: 'not-present',
+        description: 'This code system stub has been retired and superseded.',
+        marker: 'package-stub',
+      },
+    });
+    const terminologyCodeSystems = new Map([
+      [url, { resourceType: 'CodeSystem', url, version: '2026', marker: 'tx' }],
+    ]);
+
+    expect(resolvePublisherResource({ current, core, dependencies, terminologyCodeSystems }, {
+      resourceType: 'CodeSystem',
+      url,
+    })?.marker).toBe('tx');
+  });
+
+  test('keeps retired not-present non-terminology package CodeSystems before terminology metadata', () => {
+    const current = buildCurrentCanonicalIndex([]);
+    const core = emptyIndex();
+    const dependencies = emptyIndex();
+    const url = 'urn:ietf:bcp:47';
+    add(dependencies, {
+      key: { resourceType: 'CodeSystem', url },
+      package: { name: 'hl7.fhir.uv.xver-r5.r4', version: '0.1.0' },
+      sourcePath: '/packages/hl7.fhir.uv.xver-r5.r4/CodeSystem-v3-ietf3066.json',
+      resource: {
+        resourceType: 'CodeSystem',
+        url,
+        version: '2.0.1',
+        content: 'not-present',
+        description: 'Older value from OID registry. Superceded; see recommendations in BCP-47.',
+        marker: 'xver',
+      },
+    });
+    const terminologyCodeSystems = new Map([
+      [url, { resourceType: 'CodeSystem', url, marker: 'tx-placeholder' }],
+    ]);
+
+    expect(resolvePublisherResource({ current, core, dependencies, terminologyCodeSystems }, {
+      resourceType: 'CodeSystem',
+      url,
+    })?.marker).toBe('xver');
+  });
+
+  test('keeps ordinary not-present package CodeSystems before terminology metadata', () => {
+    const current = buildCurrentCanonicalIndex([]);
+    const core = emptyIndex();
+    const dependencies = emptyIndex();
+    const url = 'http://example.org/not-present';
+    add(dependencies, {
+      key: { resourceType: 'CodeSystem', url },
+      package: { name: 'example.terminology', version: '1.0.0' },
+      sourcePath: '/packages/example.terminology/CodeSystem-not-present.json',
+      resource: {
+        resourceType: 'CodeSystem',
+        url,
+        content: 'not-present',
+        description: 'External code system metadata.',
+        marker: 'package',
+      },
+    });
+    const terminologyCodeSystems = new Map([
+      [url, { resourceType: 'CodeSystem', url, version: '2026', marker: 'tx' }],
+    ]);
+
+    expect(resolvePublisherResource({ current, core, dependencies, terminologyCodeSystems }, {
+      resourceType: 'CodeSystem',
+      url,
+    })?.marker).toBe('package');
+  });
+
   test('package source lookup intentionally excludes current IG resources', () => {
     const current = buildCurrentCanonicalIndex([
       { resourceType: 'ValueSet', id: 'local', url: 'http://example.org/ValueSet/local' },

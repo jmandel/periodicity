@@ -21,11 +21,13 @@ import {
   buildCanonicalIndex,
   buildCurrentCanonicalIndex,
   canonicalIndexResources,
+  isRetiredNotPresentCodeSystem,
+  isTerminologyPackageResource,
+  resolvePublisherEntry,
   type PublisherCanonicalIndexes,
 } from './canonical';
 import {
   deriveIndexedListRows,
-  resolveCodeSystemForList,
   resolveValueSetForList,
   structureDefinitionBindingValueSetUrls,
   valueSetDirectSystems,
@@ -382,7 +384,10 @@ async function fetchMissingCodeSystemMetadata(
   const out = new Map<string, Json>();
   const missingSystems = [...new Set([...valueSets.values()].flatMap(valueSetDirectSystems))]
     .filter((system) => !system.includes('|'))
-    .filter((system) => !resolveCodeSystemForList(system, indexes))
+    .filter((system) => {
+      const entry = resolvePublisherEntry(indexes, { resourceType: 'CodeSystem', url: system });
+      return !entry || (isRetiredNotPresentCodeSystem(entry.resource) && isTerminologyPackageResource(entry));
+    })
     .sort((a, b) => a.localeCompare(b));
 
   for (const system of missingSystems) {

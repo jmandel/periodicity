@@ -29,6 +29,17 @@ export type PublisherCanonicalIndexes = {
   terminologyCodeSystems?: Map<string, Json>;
 };
 
+export function isRetiredNotPresentCodeSystem(resource: Json | undefined): boolean {
+  if (!resource || resource.resourceType !== 'CodeSystem') return false;
+  if (resource.content !== 'not-present') return false;
+  const text = [resource.description, resource.title, resource.name].filter((v) => typeof v === 'string').join('\n');
+  return /\b(retired|superseded|superceded)\b/i.test(text);
+}
+
+export function isTerminologyPackageResource(entry: IndexedResource): boolean {
+  return entry.package?.name?.startsWith('hl7.terminology') === true;
+}
+
 export function canonicalNoVersion(url: string | undefined): string | null {
   if (!url) return null;
   return url.split('|')[0];
@@ -235,19 +246,26 @@ export function resolvePublisherEntry(
   if (!clean) return undefined;
   const local = resolveIndexedEntry(indexes.current, { ...request, url: clean });
   if (local) return local;
+  const terminologyCodeSystem = request.resourceType === 'CodeSystem' ? indexes.terminologyCodeSystems?.get(clean) : undefined;
   for (const index of packageSearchOrder(indexes, request.resourceType, clean)) {
     const entry = resolveIndexedEntry(index, { ...request, url: clean });
-    if (entry) return entry;
-  }
-  if (request.resourceType === 'CodeSystem') {
-    const codeSystem = indexes.terminologyCodeSystems?.get(clean);
-    if (codeSystem) {
-      return {
-        key: { resourceType: 'CodeSystem', url: clean, version: codeSystem.version },
-        sourcePath: `terminology:${clean}`,
-        resource: codeSystem,
-      };
+    if (entry) {
+      if (terminologyCodeSystem && isRetiredNotPresentCodeSystem(entry.resource) && isTerminologyPackageResource(entry)) {
+        return {
+          key: { resourceType: 'CodeSystem', url: clean, version: terminologyCodeSystem.version },
+          sourcePath: `terminology:${clean}`,
+          resource: terminologyCodeSystem,
+        };
+      }
+      return entry;
     }
+  }
+  if (terminologyCodeSystem) {
+    return {
+      key: { resourceType: 'CodeSystem', url: clean, version: terminologyCodeSystem.version },
+      sourcePath: `terminology:${clean}`,
+      resource: terminologyCodeSystem,
+    };
   }
   return undefined;
 }

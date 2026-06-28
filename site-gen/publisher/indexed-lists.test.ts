@@ -149,6 +149,43 @@ describe('publisher list-index helpers', () => {
     expect(packageSourceLabel({ core, dependencies }, system)).toBe('hl7.terminology.r4');
   });
 
+  test('prefers non-terminology package CodeSystems before terminology labels', () => {
+    const core = emptyIndex();
+    const dependencies = emptyIndex();
+    const system = 'urn:ietf:bcp:47';
+    addCodeSystem(dependencies, {
+      ...indexedCodeSystem(system, 'hl7.fhir.uv.xver-r5.r4', { version: '0.1.0' }),
+      resource: {
+        resourceType: 'CodeSystem',
+        url: system,
+        content: 'not-present',
+        description: 'Older value from OID registry. Superceded; see recommendations in BCP-47.',
+      },
+    });
+    addCodeSystem(dependencies, indexedCodeSystem(system, 'hl7.terminology.r4', { version: '6.5.0' }));
+
+    expect(packageSourceLabel({ core, dependencies }, system)).toBe('hl7.fhir.uv.xver-r5.r4');
+  });
+
+  test('ignores retired not-present package stubs when deriving source labels', () => {
+    const core = emptyIndex();
+    const dependencies = emptyIndex();
+    const system = 'http://example.org/retired-stub';
+    addCodeSystem(dependencies, {
+      key: { resourceType: 'CodeSystem', url: system },
+      package: { name: 'hl7.terminology.r4', version: '6.5.0' },
+      sourcePath: '/packages/hl7.terminology.r4/CodeSystem-retired.json',
+      resource: {
+        resourceType: 'CodeSystem',
+        url: system,
+        content: 'not-present',
+        description: 'This code system stub has been retired and superceded.',
+      },
+    });
+
+    expect(sourceForSystem({ core, dependencies }, new Set())(system)).toBe('Other');
+  });
+
   test('labels package CodeSystems without published package paths as Internal', () => {
     const root = mkdtempSync(join(tmpdir(), 'indexed-list-source-label-'));
     try {
@@ -253,6 +290,11 @@ describe('publisher list-index helpers', () => {
       { resourceType: 'ValueSet', id: 'v2-0203', url: 'http://terminology.hl7.org/ValueSet/v2-0203' },
       indexedValueSetSource('hl7.fhir.r6.core', '6.0.0-ballot3'),
     )).toBe('http://hl7.org/fhir/6.0.0-ballot3/v2/0203/index.html');
+
+    expect(externalValueSetWeb(
+      { resourceType: 'ValueSet', id: '2.16.840.1.114222.4.11.3591', url: 'http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.114222.4.11.3591' },
+      indexedValueSetSource('us.nlm.vsac', '0.19.0'),
+    )).toBe('https://vsac.nlm.nih.gov/valueset/2.16.840.1.114222.4.11.3591/expansion');
   });
 
   test('uses package spec.internals paths with package publication URLs before guessing canonical-tail web paths', () => {

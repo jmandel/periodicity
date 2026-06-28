@@ -1,5 +1,7 @@
 import {
   canonicalNoVersion,
+  isRetiredNotPresentCodeSystem,
+  isTerminologyPackageResource,
   resolvePackageEntry,
   resolvePublisherEntry,
   resolvePublisherResource,
@@ -111,12 +113,20 @@ function preferredTerminologyFamily(coreIndex: CanonicalIndex): string | null {
 }
 
 function preferredSourceLabelEntry(entries: IndexedResource[], terminologyFamily: string | null): IndexedResource | undefined {
-  if (!entries.length) return undefined;
+  const candidates = entries.filter((entry) => !(isRetiredNotPresentCodeSystem(entry.resource) && isTerminologyPackageResource(entry)));
+  if (!candidates.length) return undefined;
+
+  const internal = candidates.find((entry) => entry.package?.dir && !hasPublishedPackagePath(entry));
+  if (internal) return internal;
+
+  const nonTerminology = candidates.filter((entry) => !entry.package?.name?.startsWith('hl7.terminology.'));
+  if (nonTerminology.length) return nonTerminology[0];
+
   const terminologyEntries = terminologyFamily
-    ? entries.filter((entry) => entry.package?.name === terminologyFamily)
+    ? candidates.filter((entry) => entry.package?.name === terminologyFamily)
     : [];
-  const candidates = terminologyEntries.length ? terminologyEntries : entries;
-  return [...candidates].sort((a, b) => comparePackageVersionLike(a.package?.version, b.package?.version) || a.sourcePath.localeCompare(b.sourcePath)).at(-1);
+  const pool = terminologyEntries.length ? terminologyEntries : candidates;
+  return [...pool].sort((a, b) => comparePackageVersionLike(a.package?.version, b.package?.version) || a.sourcePath.localeCompare(b.sourcePath)).at(-1);
 }
 
 function comparePackageVersionLike(a = '', b = ''): number {
@@ -269,6 +279,9 @@ function packageWebPath(resource: Json, source?: IndexedResource): string | null
 
 export function externalValueSetWeb(vs: Json, source?: IndexedResource): string {
   if (source?.package?.name === 'fhir.dicom' && vs.id) return `http://tx.fhir.org/r4/ValueSet/${vs.id}`;
+  if (source?.package?.name === 'us.nlm.vsac' && typeof vs.url === 'string' && vs.url.includes('cts.nlm.nih.gov')) {
+    return `${vs.url.replace('http://cts.nlm.nih.gov/fhir/ValueSet/', 'https://vsac.nlm.nih.gov/valueset/')}/expansion`;
+  }
   if (source?.package?.name?.startsWith('hl7.terminology') && source.package.version && vs.id) {
     return `http://terminology.hl7.org/${source.package.version}/ValueSet-${vs.id}.html`;
   }
