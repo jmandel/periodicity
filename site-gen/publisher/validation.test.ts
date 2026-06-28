@@ -959,6 +959,137 @@ describe('publisher example validation', () => {
     expect(validateResourceAgainstProfile(duplicate, profile, [profile, extensionProfile, duplicate]).map((i) => i.code)).toContain('max-cardinality');
   });
 
+  test('matches complex datatype slices by profile discriminators', () => {
+    const usageContextProfile = {
+      resourceType: 'StructureDefinition',
+      url: 'https://example.org/StructureDefinition/library-usagecontext',
+      type: 'UsageContext',
+      kind: 'complex-type',
+      snapshot: {
+        element: [
+          { id: 'UsageContext', path: 'UsageContext', min: 0, max: '*' },
+          {
+            id: 'UsageContext.code',
+            path: 'UsageContext.code',
+            min: 1,
+            max: '1',
+            type: [{ code: 'Coding' }],
+            patternCoding: { system: 'http://terminology.hl7.org/CodeSystem/usage-context-type', code: 'workflow' },
+          },
+          { id: 'UsageContext.value[x]', path: 'UsageContext.value[x]', min: 1, max: '1', type: [{ code: 'CodeableConcept' }] },
+        ],
+      },
+    };
+    const profile = {
+      resourceType: 'StructureDefinition',
+      url: 'https://example.org/StructureDefinition/questionnaire-library',
+      type: 'Questionnaire',
+      snapshot: {
+        element: [
+          { id: 'Questionnaire', path: 'Questionnaire', min: 0, max: '*' },
+          {
+            id: 'Questionnaire.useContext',
+            path: 'Questionnaire.useContext',
+            min: 1,
+            max: '*',
+            type: [{ code: 'UsageContext' }],
+            slicing: { discriminator: [{ type: 'profile', path: '$this' }], rules: 'open' },
+          },
+          {
+            id: 'Questionnaire.useContext:library',
+            path: 'Questionnaire.useContext',
+            sliceName: 'library',
+            min: 1,
+            max: '1',
+            type: [{ code: 'UsageContext', profile: [usageContextProfile.url] }],
+          },
+        ],
+      },
+    };
+    const questionnaire = {
+      resourceType: 'Questionnaire',
+      id: 'q',
+      useContext: [{
+        code: { system: 'http://terminology.hl7.org/CodeSystem/usage-context-type', code: 'workflow' },
+        valueCodeableConcept: { coding: [{ system: 'https://example.org/context', code: 'question-library' }] },
+      }],
+    };
+    const wrong = {
+      ...questionnaire,
+      useContext: [{
+        code: { system: 'http://terminology.hl7.org/CodeSystem/usage-context-type', code: 'focus' },
+        valueCodeableConcept: { coding: [{ system: 'https://example.org/context', code: 'question-library' }] },
+      }],
+    };
+
+    expect(validateResourceAgainstProfile(questionnaire, profile, [profile, usageContextProfile, questionnaire])).toEqual([]);
+    expect(validateResourceAgainstProfile(wrong, profile, [profile, usageContextProfile, wrong]).map((i) => i.code)).toContain('min-cardinality');
+  });
+
+  test('does not apply choice-type slice constraints to other choice types', () => {
+    const profile = {
+      resourceType: 'StructureDefinition',
+      url: 'https://example.org/StructureDefinition/questionnaire-answer-option',
+      type: 'Questionnaire',
+      snapshot: {
+        element: [
+          { id: 'Questionnaire', path: 'Questionnaire', min: 0, max: '*' },
+          { id: 'Questionnaire.item', path: 'Questionnaire.item', min: 0, max: '*' },
+          { id: 'Questionnaire.item.answerOption', path: 'Questionnaire.item.answerOption', min: 0, max: '*' },
+          {
+            id: 'Questionnaire.item.answerOption.value[x]',
+            path: 'Questionnaire.item.answerOption.value[x]',
+            min: 1,
+            max: '1',
+            slicing: { discriminator: [{ type: 'type', path: '$this' }], rules: 'open' },
+          },
+          {
+            id: 'Questionnaire.item.answerOption.value[x]:valueCoding',
+            path: 'Questionnaire.item.answerOption.value[x]',
+            sliceName: 'valueCoding',
+            min: 0,
+            max: '1',
+            type: [{ code: 'Coding' }],
+            constraint: [{
+              key: 'has-code-or-display',
+              severity: 'error',
+              human: 'Coding must have at least one of code or display',
+              expression: 'code.exists() or display.exists()',
+            }],
+          },
+          {
+            id: 'Questionnaire.item.answerOption.value[x]:valueReference',
+            path: 'Questionnaire.item.answerOption.value[x]',
+            sliceName: 'valueReference',
+            min: 0,
+            max: '1',
+            type: [{ code: 'Reference' }],
+            constraint: [{
+              key: 'has-reference-or-display',
+              severity: 'error',
+              human: 'Reference must have at least one of reference or display',
+              expression: 'reference.exists() or display.exists()',
+            }],
+          },
+        ],
+      },
+    };
+    const questionnaire = {
+      resourceType: 'Questionnaire',
+      id: 'q',
+      item: [{
+        linkId: 'a',
+        type: 'choice',
+        answerOption: [
+          { valueCoding: { code: 'a' } },
+          { valueReference: { reference: 'Patient/example' } },
+        ],
+      }],
+    };
+
+    expect(validateResourceAgainstProfile(questionnaire, profile, [profile, questionnaire])).toEqual([]);
+  });
+
   test('applies resource-type slice cardinality only to matching Bundle entries', () => {
     const profile = {
       resourceType: 'StructureDefinition',

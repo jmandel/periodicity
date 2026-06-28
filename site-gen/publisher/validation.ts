@@ -285,16 +285,68 @@ function matchingTypeProfiles(type: Json, candidateType: string | undefined, run
   return null;
 }
 
+function choiceTypeProperty(prefix: string, typeCode: string): string {
+  return `${prefix}${typeCode.charAt(0).toUpperCase()}${typeCode.slice(1)}`;
+}
+
+function inferredCandidateType(candidate: PathValue, element: Json, types: Json[]): string | undefined {
+  if (typeof candidate.value?.resourceType === 'string') return candidate.value.resourceType;
+
+  const elementLastSegment = String(element.path || '').split('.').pop() || '';
+  if (!elementLastSegment.endsWith('[x]')) return undefined;
+
+  const prefix = elementLastSegment.slice(0, -3);
+  const candidateLastSegment = (candidate.path.split('.').pop() || '').replace(/\[\d+\]$/, '');
+  return types
+    .map((type: Json) => String(type.code || ''))
+    .find((typeCode) => candidateLastSegment === choiceTypeProperty(prefix, typeCode));
+}
+
+function valueMatchesDatatypeProfile(value: any, profile: Json, runtime: ValidationRuntime): boolean {
+  const rootPath = typeof profile.type === 'string' ? profile.type : profile.snapshot?.element?.[0]?.path;
+  if (!rootPath) return false;
+
+  for (const element of profileElements(profile)) {
+    if (!element.path || element.path === rootPath) continue;
+    if (sliceChainInfo(element).length) continue;
+
+    const relativePath = element.path.split('.').slice(1).join('.');
+    const values = valuesAtRelativePath(value, relativePath || undefined);
+    if (Number(element.min || 0) > 0 && values.length < Number(element.min || 0)) return false;
+
+    const requiredValue = patternField(element);
+    if (requiredValue) {
+      if (!values.some((candidate) => requiredValue.kind === 'fixed'
+        ? matchesFixed(requiredValue.value, candidate.value)
+        : matchesPattern(requiredValue.value, candidate.value))) {
+        return false;
+      }
+    }
+
+    const constraints = Array.isArray(element.constraint) ? element.constraint : [];
+    for (const constraint of constraints) {
+      if (!constraint.expression || constraintSeverity(constraint) !== 'error') continue;
+      const known = values.length ? values.every((candidate) => evaluateKnownConstraint(value, constraint, runtime, candidate) === true) : null;
+      if (known === true) continue;
+      if (known === false) return false;
+    }
+  }
+  return true;
+}
+
 function valueMatchesTypeConstraint(value: any, element: Json, discriminatorPath: string, discriminatorType: string, slice: Json, runtime: ValidationRuntime): boolean | null {
   const types = Array.isArray(element.type) ? element.type : [];
   if (!types.length) return null;
   const candidates = resolvedDiscriminatorValues(value, discriminatorPath, runtime);
   if (!candidates.length) return false;
   return candidates.some((candidate) => {
-    const candidateType = candidate.value?.resourceType;
-    const matchingTypes = typeof candidateType === 'string'
-      ? types.map((t: Json) => ({ type: t, profiles: matchingTypeProfiles(t, candidateType, runtime) })).filter((t) => t.profiles !== null)
-      : [];
+    const candidateType = inferredCandidateType(candidate, element, types);
+    const matchingTypes = types
+      .map((t: Json) => ({
+        type: t,
+        profiles: matchingTypeProfiles(t, candidateType || (element.path?.endsWith('[x]') ? undefined : t.code), runtime),
+      }))
+      .filter((t) => t.profiles !== null);
     if (!matchingTypes.length) return false;
     if (discriminatorType !== 'profile') return true;
 
@@ -303,6 +355,13 @@ function valueMatchesTypeConstraint(value: any, element: Json, discriminatorPath
     const declaredProfiles = normalizedCanonicals(candidate.value?.meta?.profile);
     if (declaredProfiles.size) {
       return assertedProfiles.some((url: string) => declaredProfiles.has(canonicalNoVersion(url)));
+    }
+
+    const datatypeProfiles = assertedProfiles
+      .map((url: string) => runtime.profilesByUrl.get(canonicalNoVersion(url)) || runtime.profilesByUrl.get(url))
+      .filter((profile): profile is Json => !!profile && profile.kind === 'complex-type');
+    if (datatypeProfiles.length) {
+      return datatypeProfiles.some((profile) => valueMatchesDatatypeProfile(candidate.value, profile, runtime));
     }
 
     // The full Publisher validator can resolve profile discriminators by

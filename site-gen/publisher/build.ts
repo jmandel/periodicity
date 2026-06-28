@@ -45,6 +45,7 @@ import {
   deriveValueSetCodeRows,
   resourceRef,
 } from './rows';
+import { applyGlobalResourceMetadata } from './resource-metadata';
 import { assertStructureDefinitionSnapshots, completeStructureDefinitionSnapshots } from './snapshots';
 import {
   assertFreshGeneratedResources,
@@ -153,23 +154,6 @@ function typeRank(type: string): number {
     Observation: 5,
   };
   return ranks[type] ?? 100;
-}
-
-function hasCanonicalUrl(resource: Json): boolean {
-  return typeof resource.url === 'string' && resource.url.length > 0;
-}
-
-function formatFhirDateTime(d: Date): string {
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  const hh = String(d.getHours()).padStart(2, '0');
-  const min = String(d.getMinutes()).padStart(2, '0');
-  const ss = String(d.getSeconds()).padStart(2, '0');
-  const off = -d.getTimezoneOffset();
-  const sign = off >= 0 ? '+' : '-';
-  const abs = Math.abs(off);
-  return `${yyyy}-${mm}-${dd}T${hh}:${min}:${ss}${sign}${String(Math.floor(abs / 60)).padStart(2, '0')}:${String(abs % 60).padStart(2, '0')}`;
 }
 
 function git(args: string[]): string | null {
@@ -335,20 +319,6 @@ function loadGeneratedImplementationGuide(generatedResourceFiles: string[]): Jso
     if (resource.resourceType === 'ImplementationGuide') return resource;
   }
   return null;
-}
-
-function applyGlobalResourceMetadata(resource: Json, cfg: Json, now: Date): Json {
-  if (!hasCanonicalUrl(resource)) return resource;
-  const out = { ...resource };
-  if (cfg.version) out.version = cfg.version;
-  if (cfg.parameters?.['apply-contact'] && cfg.publisher?.name && !out.contact) {
-    out.contact = [{
-      name: cfg.publisher.name,
-      ...(cfg.publisher.url ? { telecom: [{ system: 'url', value: cfg.publisher.url }] } : {}),
-    }];
-  }
-  if (!out.date) out.date = formatFhirDateTime(now);
-  return out;
 }
 
 function configuredSushiLogLevel(): 'error' | 'warn' | 'info' | 'debug' | undefined {
